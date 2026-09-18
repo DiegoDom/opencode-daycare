@@ -25,6 +25,14 @@ Keep the `nextjs-agent-rules` markers intact so `next dev` upserts this block in
 - Tailwind v4 has no `tailwind.config.*`; theme tokens live in `app/globals.css` (`@import "tailwindcss"` + `@theme inline`).
 - `references/pantallas/*.dc.html` are standalone design mockups for the daycare product and `references/screenshots/` holds screenshots. Build UI to match them (warm palette, Fredoka/Nunito fonts). They are reference-only, not bundled by the app.
 
+## Arquitectura
+Clean Architecture pragmática a 4 capas — convención en `specs/00-arquitectura.md` (SPEC 00), de la que dependen las specs 01+.
+- **Dominio:** tipos puros sin dependencias (hoy viven en `data/mock/*.ts`).
+- **Aplicación (casos de uso):** `lib/` — sin JSX ni `"use client"` (server-safe). Las pantallas consumen los datos solo vía funciones de aquí (p. ej. `getFeedData()` en `lib/feed.ts`).
+- **Infraestructura (fuentes/adaptadores):** `data/` — hoy mocks (`data/mock/feed.ts`), única capa reemplazable por API/DB.
+- **Presentación (frameworks & drivers):** `app/` (Server Components) + `components/` (presentacional).
+- Regla de dependencia: siempre hacia adentro. **`app/` y `components/` jamás importan desde `data/`.**
+
 ## Next.js 16 gotchas
 Read `node_modules/next/dist/docs/` before writing code; these differ from older Next.js:
 - Request APIs are async: `await params`, `await searchParams`, `await cookies()`, `await headers()`, `await draftMode()`. Prefer the generated types `PageProps<'/route'>`, `LayoutProps<'/'>`, `RouteContext` (regenerate with `npx next typegen`).
@@ -36,4 +44,4 @@ Read `node_modules/next/dist/docs/` before writing code; these differ from older
 ## MCP / tooling
 - Playwright MCP (configured in `opencode.json`): put every artifact it generates (screenshots, console logs, snapshots) under `.playwright-mcp/` (gitignored).
 - Context7 MCP: use it to pull current framework/library docs.
-- Spec-driven skills live in `.agents/skills/` (`spec`, `spec-impl`); specs go in `specs/` (none yet).
+- Spec-driven skills live in `.agents/skills/` (`spec`, `spec-impl`); specs go in `specs/` (`00-arquitectura.md` fija la convención Clean Architecture; las specs de features numeradas 01+ dependen de ella).
