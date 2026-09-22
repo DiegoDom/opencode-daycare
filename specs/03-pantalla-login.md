@@ -1,9 +1,6 @@
 # SPEC 03 — Pantalla Login desde el mockup `login.dc.html`
 
-> **Estado:** Approved
-> ****Depende de:** SPEC 00 — Arquitectura
-> ****Fecha:** 2026-09-22
-> ****Objetivo:** Replicar la pantalla `references/pantallas/login.dc.html` como la ruta `/login`, omitiendo la sección "INGRESO COMO", sin autenticación ni base de datos, dejando `/` como el feed actual.
+> **Estado:** Implemented \*\***Depende de:** SPEC 00 — Arquitectura \*\***Fecha:** 2026-09-22 \*\***Objetivo:** Replicar la pantalla `references/pantallas/login.dc.html` como la ruta `/login`, omitiendo la sección "INGRESO COMO", sin autenticación ni base de datos, dejando `/` como el feed actual.
 
 ## Alcance
 
@@ -39,28 +36,28 @@ Capa de presentación (única): `app/login/page.tsx` (Server Component) + `compo
 
 ## Criterios de aceptación
 
-- [ ] `npm run lint` termina sin errores ni warnings.
+- [x] `npm run lint` termina sin errores ni warnings.
 
-- [ ] `npm run build` termina correctamente.
+- [x] `npm run build` termina correctamente.
 
-- [ ] `/login` renderiza la pantalla del mockup; `/` sigue mostrando el feed de SPEC 01/02.
+- [x] `/login` renderiza la pantalla del mockup; `/` sigue mostrando el feed de SPEC 01/02.
 
-- [ ] En `≥ lg` se ve el split 2 columnas con el panel degradado (logo, titular "El día de cada niño,\
+- [x] En `≥ lg` se ve el split 2 columnas con el panel degradado (logo, titular "El día de cada niño,\
   compartido con su familia.", párrafo y "🌿 Guardería Sala Soles") y el formulario centrado de `max-w-[392px]`.
 
-- [ ] No existe la sección **INGRESO COMO** ni los botones Personal/Familia en el DOM (verificable con snapshot).
+- [x] No existe la sección **INGRESO COMO** ni los botones Personal/Familia en el DOM (verificable con snapshot).
 
-- [ ] El campo EMAIL muestra `caro@opendaycare.com`; CONTRASEÑA es `type="password"` con placeholder `••••••••`.
+- [x] El campo EMAIL muestra `caro@opendaycare.com`; CONTRASEÑA es `type="password"` con placeholder `••••••••`.
 
-- [ ] Clic en "¿Olvidaste tu contraseña?", "Activá tu cuenta" y "Iniciar sesión" **no** navega ni recarga (URL y página intactas).
+- [x] Clic en "¿Olvidaste tu contraseña?", "Activá tu cuenta" y "Iniciar sesión" **no** navega ni recarga (URL y página intactas).
 
-- [ ] Pulsar Enter sobre los campos no navega ni recarga.
+- [x] Pulsar Enter sobre los campos no navega ni recarga.
 
-- [ ] En `< lg` no hay scroll horizontal: se oculta el panel izquierdo y queda la barra compacta con logo + "OpenDayCare" sobre el formulario.
+- [x] En `< lg` no hay scroll horizontal: se oculta el panel izquierdo y queda la barra compacta con logo + "OpenDayCare" sobre el formulario.
 
-- [ ] Inputs expuestos con `aria-label`; fonts Fredoka/Nunito y paleta del mockup (fondo `#FBF4EC`, texto `#3F362E`, acento `#C5503A`, gradientes del botón y panel).
+- [x] Inputs expuestos con `aria-label`; fonts Fredoka/Nunito y paleta del mockup (fondo `#FBF4EC`, texto `#3F362E`, acento `#C5503A`, gradientes del botón y panel).
 
-- [ ] Ningún archivo en `app/` ni `components/` importa desde `data/` (verificable con grep).
+- [x] Ningún archivo en `app/` ni `components/` importa desde `data/` (verificable con grep).
 
 ## Decisiones
 
