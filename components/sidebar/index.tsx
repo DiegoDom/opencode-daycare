@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { CloseIcon, MenuIcon } from "../icons";
 import { Brand } from "./brand";
+import type { NavId } from "./nav";
 import { SidebarContent } from "./sidebar-content";
 import type { SidebarUser } from "./user-footer";
 
@@ -10,6 +12,9 @@ export type { SidebarUser } from "./user-footer";
 
 export default function Sidebar({ user }: { user: SidebarUser }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const active: NavId | undefined =
+    pathname === "/" ? "feed" : pathname.startsWith("/kids") ? "kids" : undefined;
 
   useEffect(() => {
     if (!open) return;
@@ -31,7 +36,7 @@ export default function Sidebar({ user }: { user: SidebarUser }) {
   return (
     <>
       <aside className="hidden w-[248px] flex-none flex-col border-r border-line bg-card px-4 py-6 lg:sticky lg:top-0 lg:flex lg:h-screen lg:py-6">
-        <SidebarContent user={user} />
+        <SidebarContent user={user} active={active} />
       </aside>
 
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-card px-4 py-3 lg:hidden">
@@ -69,6 +74,7 @@ export default function Sidebar({ user }: { user: SidebarUser }) {
       >
         <SidebarContent
           user={user}
+          active={active}
           onAction={() => setOpen(false)}
           brand={
             <div className="flex items-center justify-between">
