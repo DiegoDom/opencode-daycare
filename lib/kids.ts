@@ -10,8 +10,15 @@ export function getKidById(id: string): Kid | undefined {
   return kids.find((kid) => kid.id === id);
 }
 
+function normalize(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 export function searchKids(query: string): Kid[] {
-  const q = query.trim().toLowerCase();
+  const q = normalize(query.trim());
   if (!q) return kids;
-  return kids.filter((kid) => kid.name.toLowerCase().includes(q));
+  return kids.filter((kid) => normalize(kid.name).includes(q));
 }

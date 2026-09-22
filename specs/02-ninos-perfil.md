@@ -92,11 +92,13 @@ export function getKidById(id: string): Kid | undefined {
 }
 
 export function searchKids(query: string): Kid[] {
-  const q = query.trim().toLowerCase();
+  const q = normalize(query.trim());
   if (!q) return kids;
-  return kids.filter((kid) => kid.name.toLowerCase().includes(q));
+  return kids.filter((kid) => normalize(kid.name).includes(q));
 }
 ```
+
+Donde `normalize` elimina diacríticos (NFD) y baja a minúsculas, de modo que "sofia" encuentra a "Sofía".
 
 ## Arquitectura / Patrones
 
@@ -168,6 +170,7 @@ Regla de flujo de datos: las rutas importan desde `lib/kids.ts` y pasan datos co
 - **Sí:** reutilizar el Sidebar responsive de SPEC 01 (mismo drawer) y los iconos existentes; solo se agregan los SVGs faltantes.
 - **Sí:** filtrado as-you-type con debounce (\~300 ms) como experiencia principal de búsqueda. `kid-search.tsx` solo navega la URL (`router.replace` + `?q=`); el filtrado queda server-side en `lib/kids.ts`, sin romper la regla de dependencia ni duplicar lógica. Costo aceptado: 2º `"use client"`, wrapper `<Suspense>` y sync del estado con la URL.
 - **Sí:** mantener el `<form>` GET con submit (Enter) como fallback sin-JS (progressive enhancement).
+- **Sí:** búsqueda por nombre insensible a acentos (normalizar diacríticos en `searchKids`). Sin esto, "sofia" no encuentra a "Sofía" por la tilde; se normaliza en `lib/kids.ts` tanto query como nombre.
 - **No:** filtrado en cliente importando `data/` desde un componente. Rompe la regla de dependencia de SPEC 00; se descarta.
 - **No:** CRUD, resumen del día, vincular padre, persistencia. Cada uno merece su propio spec.
 
