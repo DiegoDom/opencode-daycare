@@ -4,7 +4,15 @@ import { ChevronRightIcon } from "./icons";
 
 const VINCULAR_BADGE = { bg: "#F9D2DE", text: "#C56486" };
 
-export default function KidCard({ kid }: { kid: Kid }) {
+const CARD_CLASSES =
+  "flex items-center gap-[14px] rounded-[18px] border border-line bg-card px-4 py-4 shadow-[0_4px_14px_-12px_rgba(120,90,60,0.5)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[#F2A78E]";
+
+interface KidCardProps {
+  kid: Kid;
+  link?: string | null;
+}
+
+export default function KidCard({ kid, link }: KidCardProps) {
   const parentsLabel =
     kid.parentsCount === 0
       ? "sin padres vinculados"
@@ -12,11 +20,8 @@ export default function KidCard({ kid }: { kid: Kid }) {
           kid.parentsCount === 1 ? "" : "s"
         }`;
 
-  return (
-    <Link
-      href={`/kids/${kid.id}`}
-      className="flex items-center gap-[14px] rounded-[18px] border border-line bg-card px-4 py-4 shadow-[0_4px_14px_-12px_rgba(120,90,60,0.5)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[#F2A78E]"
-    >
+  const content = (
+    <>
       <div
         className="flex h-12 w-12 flex-none items-center justify-center rounded-full font-display text-[19px] font-semibold"
         style={{ backgroundColor: kid.avatarBg, color: kid.avatarColor }}
@@ -46,6 +51,16 @@ export default function KidCard({ kid }: { kid: Kid }) {
       ) : (
         <ChevronRightIcon className="flex-none text-[#CBB89F]" />
       )}
+    </>
+  );
+
+  if (link === null) {
+    return <div className={CARD_CLASSES}>{content}</div>;
+  }
+
+  return (
+    <Link href={link ?? `/kids/${kid.id}`} className={CARD_CLASSES}>
+      {content}
     </Link>
   );
 }
