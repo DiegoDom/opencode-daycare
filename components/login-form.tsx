@@ -13,7 +13,7 @@ export default function LoginForm() {
         type="email"
         defaultValue="caro@opendaycare.com"
         aria-label="Correo electrónico"
-        className="mb-[18px] w-full rounded-[14px] border-[1.5px] border-line bg-white px-4 py-[14px] text-[15px] text-ink placeholder:text-[#B6A99B]"
+        className="mb-[18px] w-full rounded-[14px] border-[1.5px] border-[#EADFD0] bg-white px-4 py-[14px] text-[15px] text-ink placeholder:text-[#B6A99B]"
       />
 
       <div className="mb-2 text-[12px] font-bold tracking-[0.7px] text-muted">
@@ -23,7 +23,7 @@ export default function LoginForm() {
         type="password"
         placeholder="••••••••"
         aria-label="Contraseña"
-        className="mb-[10px] w-full rounded-[14px] border-[1.5px] border-line bg-white px-4 py-[14px] text-[15px] text-ink placeholder:text-[#B6A99B]"
+        className="mb-[10px] w-full rounded-[14px] border-[1.5px] border-[#EADFD0] bg-white px-4 py-[14px] text-[15px] text-ink placeholder:text-[#B6A99B]"
       />
 
       <div className="mb-5 text-right">
