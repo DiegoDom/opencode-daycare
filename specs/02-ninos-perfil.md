@@ -1,6 +1,6 @@
 # SPEC 02 — Pantallas Niños y Perfil de niño
 
-> **Estado:** Approved
+> **Estado:** Implementado
 > ****Depende de:** SPEC 00 — Arquitectura, SPEC 01 — Home Feed
 > ****Fecha:** 2026-09-22 
 > ****Objetivo:** Implementar las pantallas Niños (listado) y Perfil de niño replicando los mockups `ninos.dc.html` y `perfil-nino.dc.html`, con datos mock de los 8 niños y navegación real desde el listado al perfil (`/ninos/[id]`), reutilizando el layout y sidebar existentes, sin agregar funcionalidad extra.
