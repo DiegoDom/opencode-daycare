@@ -6,7 +6,7 @@ export default function KidProfileHeader({ kid }: { kid: Kid }) {
   return (
     <>
       <Link
-        href="/ninos"
+        href="/kids"
         className="mb-5 flex items-center gap-[7px] text-sm font-bold text-muted"
       >
         <ArrowLeftIcon />

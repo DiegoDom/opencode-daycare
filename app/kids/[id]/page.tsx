@@ -12,7 +12,7 @@ export function generateStaticParams() {
   return getKids().map((kid) => ({ id: kid.id }));
 }
 
-export default async function KidProfilePage({ params }: PageProps<"/ninos/[id]">) {
+export default async function KidProfilePage({ params }: PageProps<"/kids/[id]">) {
   const { id } = await params;
   const kid = getKidById(id);
   if (!kid) notFound();

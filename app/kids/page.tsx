@@ -8,7 +8,7 @@ import Sidebar from "@/components/sidebar";
 import { getFeedData } from "@/lib/feed";
 import { searchKids } from "@/lib/kids";
 
-export default async function NinosPage({ searchParams }: PageProps<"/ninos">) {
+export default async function KidsPage({ searchParams }: PageProps<"/kids">) {
   const params = await searchParams;
   const q = typeof params.q === "string" ? params.q : "";
   const kids = searchKids(q);

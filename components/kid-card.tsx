@@ -14,7 +14,7 @@ export default function KidCard({ kid }: { kid: Kid }) {
 
   return (
     <Link
-      href={`/ninos/${kid.id}`}
+      href={`/kids/${kid.id}`}
       className="flex items-center gap-[14px] rounded-[18px] border border-line bg-card px-4 py-4 shadow-[0_4px_14px_-12px_rgba(120,90,60,0.5)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[#F2A78E]"
     >
       <div

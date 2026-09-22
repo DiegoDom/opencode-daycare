@@ -14,7 +14,7 @@ export default function Sidebar({ user }: { user: SidebarUser }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const active: NavId | undefined =
-    pathname === "/" ? "feed" : pathname.startsWith("/ninos") ? "kids" : undefined;
+    pathname === "/" ? "feed" : pathname.startsWith("/kids") ? "kids" : undefined;
 
   useEffect(() => {
     if (!open) return;

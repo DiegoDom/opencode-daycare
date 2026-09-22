@@ -5,7 +5,7 @@ export type NavId = "feed" | "kids";
 
 const NAV_ITEMS = [
   { id: "feed", label: "Feed", icon: HomeIcon, href: "/" },
-  { id: "kids", label: "Niños", icon: KidsIcon, href: "/ninos" },
+  { id: "kids", label: "Niños", icon: KidsIcon, href: "/kids" },
   { id: "avisos", label: "Avisos", icon: BellIcon },
   { id: "cuenta", label: "Mi cuenta", icon: UserIcon },
 ] as const;

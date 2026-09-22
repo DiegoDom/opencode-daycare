@@ -33,7 +33,7 @@ export default function KidSearch() {
 
   return (
     <form
-      action="/ninos"
+      action="/kids"
       method="get"
       role="search"
       className="mb-6 flex items-center gap-[11px] rounded-[14px] border border-line bg-card px-4 py-3"
