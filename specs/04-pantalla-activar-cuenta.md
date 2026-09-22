@@ -1,6 +1,6 @@
 # SPEC 04 — Pantalla Activar Cuenta desde el mockup `activar-cuenta.dc.html`
 
-> **Estado:** Approved
+> **Estado:** Implemented
 > ****Depende de:** SPEC 00 — Arquitectura, SPEC 03 — Pantalla Login
 > ****Fecha:** 2026-09-22
 > ****Objetivo:** Replicar pantalla a pantalla `references/pantallas/activar-cuenta.dc.html` como la ruta `/activate-account` bajo un route group `(auth)`, con datos estáticos y sin DB, haciendo que el link "Activá tu cuenta" del login navegue a la nueva ruta.
