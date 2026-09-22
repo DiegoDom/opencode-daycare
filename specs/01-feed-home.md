@@ -1,6 +1,6 @@
 # SPEC 01 — Home Feed desde el mockup `feed.dc.html`
 
-> **Estado:** Aprobado **Depende de:** SPEC 00 — Arquitectura **Fecha:** 2026-09-18 **Objetivo:** Replicar pixel a pixel la pantalla `references/pantallas/feed.dc.html` como el home (`/`) del proyecto Next.js con Tailwind, sin autenticación ni base de datos.
+> **Estado:** Implementado **Depende de:** SPEC 00 — Arquitectura **Fecha:** 2026-09-18 **Objetivo:** Replicar pixel a pixel la pantalla `references/pantallas/feed.dc.html` como el home (`/`) del proyecto Next.js con Tailwind, sin autenticación ni base de datos.
 
 ## Alcance
 
@@ -89,43 +89,43 @@ Regla de flujo de datos: `app/page.tsx` importa `getFeedData()` desde `lib/feed.
 
 ## Criterios de aceptación
 
-- [ ] `npm run lint` termina sin errores ni warnings.
+- [x] `npm run lint` termina sin errores ni warnings.
 
-- [ ] `npm run build` termina correctamente.
+- [x] `npm run build` termina correctamente.
 
-- [ ] `app/page.tsx` consume el feed vía `getFeedData()` de `lib/feed.ts`; ningún archivo en `app/` ni `components/` importa desde `data/` (verificable con grep).
+- [x] `app/page.tsx` consume el feed vía `getFeedData()` de `lib/feed.ts`; ningún archivo en `app/` ni `components/` importa desde `data/` (verificable con grep).
 
-- [ ] `app/page.tsx` ya no contiene el boilerplate de create-next-app.
+- [x] `app/page.tsx` ya no contiene el boilerplate de create-next-app.
 
-- [ ] En `/` se ve el fondo `#F6ECDF` y una sidebar de 248px `#FFFDF9` fija a la izquierda con los 4 ítems de nav (Feed resaltado en `#FBE3D8`/`#D9583C`).
+- [x] En `/` se ve el fondo `#F6ECDF` y una sidebar de 248px `#FFFDF9` fija a la izquierda con los 4 ítems de nav (Feed resaltado en `#FBE3D8`/`#D9583C`).
 
-- [ ] El saludo muestra "GUARDERÍA · SALA SOLES", "Buenas, Caro" y "12 niños · martes 17 jun" exactos.
+- [x] El saludo muestra "GUARDERÍA · SALA SOLES", "Buenas, Caro" y "12 niños · martes 17 jun" exactos.
 
-- [ ] La tarjeta "Compartí un momento…" aparece con el avatar "C" y el icono de cámara.
+- [x] La tarjeta "Compartí un momento…" aparece con el avatar "C" y el icono de cámara.
 
-- [ ] Aparece el divisor "PUBLICADO HOY" con su línea.
+- [x] Aparece el divisor "PUBLICADO HOY" con su línea.
 
-- [ ] Los 3 posts renderizan el contenido exacto del mockup: badge y color correctos por tipo, audiencia, hora, cuerpo, y contadores de corazón/comentario.
+- [x] Los 3 posts renderizan el contenido exacto del mockup: badge y color correctos por tipo, audiencia, hora, cuerpo, y contadores de corazón/comentario.
 
-- [ ] El post de actividad muestra el placeholder de foto con texto "Foto · pintando con témperas".
+- [x] El post de actividad muestra el placeholder de foto con texto "Foto · pintando con témperas".
 
-- [ ] Clic en cualquier elemento de la sidebar, "Nueva publicación", "Editar", corazón, comentario y botón de logout **no** produce navegación ni 404.
+- [x] Clic en cualquier elemento de la sidebar, "Nueva publicación", "Editar", corazón, comentario y botón de logout **no** produce navegación ni 404.
 
-- [ ] Títulos en Fredoka y textos en Nunito (vía `next/font`).
+- [x] Títulos en Fredoka y textos en Nunito (vía `next/font`).
 
-- [ ] `<html lang="es">` y `<title>OpenDayCare</title>`.
+- [x] `<html lang="es">` y `<title>OpenDayCare</title>`.
 
-- [ ] En viewport `< lg` (1024px) no hay scroll horizontal ni sidebar apilada: se ve la barra superior con botón hamburguesa y la marca "OpenDayCare · Sala Soles".
+- [x] En viewport `< lg` (1024px) no hay scroll horizontal ni sidebar apilada: se ve la barra superior con botón hamburguesa y la marca "OpenDayCare · Sala Soles".
 
-- [ ] El clic en la hamburguesa abre el drawer con los 4 ítems de nav, "Nueva publicación" y el footer de usuario, idénticos a la sidebar desktop.
+- [x] El clic en la hamburguesa abre el drawer con los 4 ítems de nav, "Nueva publicación" y el footer de usuario, idénticos a la sidebar desktop.
 
-- [ ] El drawer se cierra al hacer clic en un ítem, al hacer clic sobre el backdrop, al presionar Esc o al tocar el botón X.
+- [x] El drawer se cierra al hacer clic en un ítem, al hacer clic sobre el backdrop, al presionar Esc o al tocar el botón X.
 
-- [ ] El botón hamburguesa expone `aria-expanded`/`aria-controls` y el panel del drawer tiene `role="dialog"` con `aria-label`.
+- [x] El botón hamburguesa expone `aria-expanded`/`aria-controls` y el panel del drawer tiene `role="dialog"` con `aria-label`.
 
-- [ ] Con el drawer abierto, el contenido detrás no scrollea.
+- [x] Con el drawer abierto, el contenido detrás no scrollea.
 
-- [ ] En viewport `≥ lg` (1024px) el sidebar se muestra fijo a la izquierda, idéntico al mockup desktop.
+- [x] En viewport `≥ lg` (1024px) el sidebar se muestra fijo a la izquierda, idéntico al mockup desktop.
 
 ## Decisiones
 
