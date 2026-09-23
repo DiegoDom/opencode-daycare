@@ -1,6 +1,6 @@
 import ComposeCard from "@/components/compose-card";
 import FeedHeader from "@/components/feed-header";
-import PostCard from "@/components/post-card";
+import FeedShell from "@/components/feed-shell";
 import SectionDivider from "@/components/section-divider";
 import Sidebar from "@/components/sidebar";
 import { getFeedData } from "@/lib/feed";
@@ -24,11 +24,7 @@ export default function Home() {
           />
           <SectionDivider label="PUBLICADO HOY" />
 
-          <div className="flex flex-col gap-4">
-            {feed.posts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </div>
+          <FeedShell basePosts={feed.posts} currentUser={feed.currentUser} />
         </div>
       </main>
     </div>
