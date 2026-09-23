@@ -33,17 +33,20 @@ export default function KidProfileShell({ baseKid }: { baseKid: Kid }) {
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed: unknown = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return;
-      const stored = parsed as Kid[];
-      const override = stored.find((kid) => kid.id === baseKid.id);
-      if (override) setDisplayKid(override);
-    } catch {
-      // localStorage deshabilitado: la vista usa solo baseKid
-    }
+    const timer = setTimeout(() => {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return;
+        const stored = parsed as Kid[];
+        const override = stored.find((kid) => kid.id === baseKid.id);
+        if (override) setDisplayKid(override);
+      } catch {
+        // localStorage deshabilitado: la vista usa solo baseKid
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [baseKid.id]);
 
   function handleSave(draft: LinkParentDraft) {
