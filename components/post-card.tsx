@@ -5,17 +5,41 @@ const BADGES: Record<
   Post["type"],
   { label: string; bg: string; dot: string; text: string }
 > = {
-  logro: {
-    label: "LOGRO",
-    bg: "bg-badge-green-bg",
-    dot: "bg-badge-green",
-    text: "text-badge-green",
+  comida: {
+    label: "COMIDA",
+    bg: "bg-badge-honey-bg",
+    dot: "bg-badge-honey",
+    text: "text-badge-honey",
+  },
+  siesta: {
+    label: "SIESTA",
+    bg: "bg-badge-lavender-bg",
+    dot: "bg-badge-lavender",
+    text: "text-badge-lavender",
   },
   actividad: {
     label: "ACTIVIDAD",
     bg: "bg-badge-blue-bg",
     dot: "bg-badge-blue",
     text: "text-badge-blue",
+  },
+  logro: {
+    label: "LOGRO",
+    bg: "bg-badge-green-bg",
+    dot: "bg-badge-green",
+    text: "text-badge-green",
+  },
+  animo: {
+    label: "ÁNIMO",
+    bg: "bg-badge-rose-bg",
+    dot: "bg-badge-rose",
+    text: "text-badge-rose",
+  },
+  foto: {
+    label: "FOTO",
+    bg: "bg-badge-coral-bg",
+    dot: "bg-badge-coral",
+    text: "text-badge-coral",
   },
   anuncio: {
     label: "ANUNCIO",
@@ -35,7 +59,7 @@ export default function PostCard({ post }: { post: Post }) {
           className="flex h-11 w-11 flex-none items-center justify-center rounded-full font-display text-[17px] font-semibold"
           style={{ backgroundColor: post.author.avatarBg, color: post.author.avatarColor }}
         >
-          {post.type === "anuncio" ? <MegaphoneIcon /> : post.author.initials}
+          {post.author.initials === "" ? <MegaphoneIcon /> : post.author.initials}
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate font-display text-[16.5px] font-semibold text-ink">
@@ -57,7 +81,20 @@ export default function PostCard({ post }: { post: Post }) {
 
       <p className="mt-2.5 text-[15.5px] leading-[1.55] text-ink-soft">{post.body}</p>
 
-      {post.photo ? (
+      {post.photos ? (
+        <div
+          className={`mt-3.5 grid ${post.photos.length === 1 ? "grid-cols-1" : "grid-cols-2"} gap-2.5`}
+        >
+          {post.photos.map((photo, i) => (
+            <img
+              key={i}
+              src={photo.src}
+              alt=""
+              className="aspect-[4/3] w-full rounded-2xl object-cover"
+            />
+          ))}
+        </div>
+      ) : post.photo ? (
         <div className="mt-3.5 flex h-[200px] flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-line-dashed bg-photo text-[#B0A290]">
           <PhotoIcon />
           <span className="text-[13.5px]">{post.photo.label}</span>
