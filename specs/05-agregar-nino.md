@@ -4,6 +4,7 @@
 > ****Depende de:** SPEC 00 — Arquitectura, SPEC 02 — Niños y Perfil
 > ****Fecha:** 2026-09-22
 > ****Enmienda 05.1 — Pulido UX (2026-09-23):** mejora validación inline, fecha con máscara + picker nativo y modal compacto; ver detalles marcados con *(05.1)*.
+> ****Enmienda 05.2 — Enter revela errores (2026-09-23):** con el botón Guardar `disabled` hasta válido, el navegador bloquea el envío implícito del form; se intercepta Enter para que el intento de guardar marque ambos campos como `touched` (criterio 8); ver detalles marcados con *(05.2)*.
 > ****Objetivo:** Permitir agregar un niño desde el botón "Agregar niño" del listado de Niños abriendo un modal que captura nombre completo, fecha de nacimiento y sala (Soles / Estrellas / Lunitas) más alergias y notas opcionales, y que guarda el nuevo niño en localStorage para verlo en el listado agrupado por sala y en la búsqueda, todo a nivel front sin DB.
 
 ## Alcance
@@ -73,7 +74,7 @@ Sigue los principios de la **SPEC 00 — Arquitectura** (Clean Architecture prag
 1. **Helpers compartidos.** Crear `lib/kid-utils.ts` con `normalize` (NFD + minúsculas) y `matchesName(name, query)`; refactorizar `lib/kids.ts` para usar `normalize` de ahí (sin cambio de comportamiento). Verify: `npm run build`.
 2. **Botón interactivo.** En `components/kids-header.tsx`, agregar prop opcional `onAdd?: () => void`; con ella el botón "Agregar niño" pasa a `<button type="button" onClick={onAdd}>` con la misma apariencia. Verify: `npm run build`.
 3. **Modal.** Crear `components/add-kid-modal.tsx` (`"use client"`, `role="dialog"` + `aria-modal`): overlay `bg-black/40` centrado, card `max-w-[520px]` con el encabezado Cancelar / "Agregar niño" / Guardar y los 5 campos del mockup (nombre, fecha `dd/mm/aaaa`, select de sala con las 3 salas, alergias, notas). Validación en vivo: Guardar deshabilitado mientras nombre, fecha real no-futura o sala estén mal; `<form onSubmit={preventDefault + onSave}>` (Enter guarda si es válido). Cierre con Cancelar, Esc y clic en el fondo. Prop `onSave(draft)` emite nombre, fecha, sala, alergias y notas. Verify: `npm run build`.
-3.1. **(05.1) Pulido UX.** Crear `lib/kid-validation.ts` y mover allí `parseBirthDate`/`isValidBirthDate` + nuevos `validateName`, `validateBirthDate`, `formatBirthDateInput`, `formatISOToInput`, `todayISO`. En `components/add-kid-modal.tsx`: estados `touchedName/touchedDate`, errores `aria-invalid/describedby` + `role="alert"`, máscara de fecha con preservación de cursor, botón calendario que abre `<input type="date" hidden max=today>` vía `showPicker()` y convierte `yyyy-mm-dd` → `dd/mm/aaaa`, `onSubmit` marca ambos touched si inválido, header `sticky` y layout compacto `max-h-[min(85dvh,720px)]` `w-[min(520px,calc(100vw-24px))]` `py-[11px]` `gap-3` `mb-3.5` `min-h-[72px] rows=2`. Añadir `CalendarIcon` en `components/icons.tsx` y actualizar `components/kids-shell.tsx` para importar `parseBirthDate` desde `lib/kid-validation.ts`. Verify: `npm run build`.
+3.1. **(05.1) Pulido UX.** Crear `lib/kid-validation.ts` y mover allí `parseBirthDate`/`isValidBirthDate` + nuevos `validateName`, `validateBirthDate`, `formatBirthDateInput`, `formatISOToInput`, `todayISO`. En `components/add-kid-modal.tsx`: estados `touchedName/touchedDate`, errores `aria-invalid/describedby` + `role="alert"`, máscara de fecha con preservación de cursor, botón calendario que abre `<input type="date" hidden max=today>` vía `showPicker()` y convierte `yyyy-mm-dd` → `dd/mm/aaaa`, `onSubmit` marca ambos touched si inválido *(05.2)* y `onKeyDown` en el form intercepta Enter sobre inputs de texto para marcar ambos touched si inválido, header `sticky` y layout compacto `max-h-[min(85dvh,720px)]` `w-[min(520px,calc(100vw-24px))]` `py-[11px]` `gap-3` `mb-3.5` `min-h-[72px] rows=2`. Añadir `CalendarIcon` en `components/icons.tsx` y actualizar `components/kids-shell.tsx` para importar `parseBirthDate` desde `lib/kid-validation.ts`. Verify: `npm run build`.
 4. **Shell del listado.** Crear `components/kids-shell.tsx` (`"use client"`): props `{ baseKids: Kid[]; query: string }`. En mount lee `opdaycare.kids.v1` (try/catch, fallback en memoria), mezcla base + agregados (agregados al inicio de su sala), agrupa por `kid.room`, filtra con `matchesName(query)`, renderiza encabezado (usa `KidsHeader` con `onAdd`), secciones por sala con `KidCard`, `KidsEmpty` si no hay resultados, y el `AddKidModal` abierto por el botón. `onSave` construye el `Kid` (id, iniciales, paleta, edad, `parentsCount: 0`, fecha de ingreso, badge/nota desde alergias) y persiste `opdaycare.kids.v1`. Devolución del foco al botón al cerrar. Verify: `npm run build`.
 5. **Tarjeta sin link.** En `components/kid-card.tsx`, prop `link?: string`; si llega `null`, renderiza un `<div>` con las mismas clases (niños agregados) en vez del `<Link>`. Verify: `npm run build` + visual del listado intacto.
 6. **Cablear la ruta.** En `app/kids/page.tsx`, reemplazar el render del encabezado, secciones y estado vacío por `<KidsShell baseKids={kids} query={q} />`; se mantienen `Sidebar`, `KidSearch` en `<Suspense>`, layout y grid. Limpiar imports sin uso. Verify: `npm run build`; `/kids` responde igual.
@@ -81,43 +82,45 @@ Sigue los principios de la **SPEC 00 — Arquitectura** (Clean Architecture prag
 
 ## Criterios de aceptación
 
-- [ ] `npm run lint` termina sin errores ni warnings.
+- [x] `npm run lint` termina sin errores ni warnings.
 
-- [ ] `npm run build` termina correctamente.
+- [x] `npm run build` termina correctamente.
 
-- [ ] Clic en "Agregar niño" abre el modal; la URL sigue siendo `/kids` (sin navegación ni recarga).
+- [x] Clic en "Agregar niño" abre el modal; la URL sigue siendo `/kids` (sin navegación ni recarga).
 
-- [ ] El modal muestra los 5 campos del mockup y el botón Guardar deshabilitado con los campos vacíos.
+- [x] El modal muestra los 5 campos del mockup y el botón Guardar deshabilitado con los campos vacíos.
 
-- [ ] Guardar se habilita solo cuando nombre no vacío, fecha real `dd/mm/aaaa` no futura y sala seleccionada.
+- [x] Guardar se habilita solo cuando nombre no vacío, fecha real `dd/mm/aaaa` no futura y sala seleccionada.
 
-- [ ] *(05.1)* Blur en nombre vacío muestra "Ingresa el nombre completo" con `aria-invalid` y `role="alert"`; blur en fecha vacía/incompleta/inválida/futura muestra el mensaje correspondiente ("Ingresa la fecha…", "Completa la fecha (dd/mm/aaaa)", "Fecha no válida", "No puede ser una fecha futura").
+- [x] *(05.1)* Blur en nombre vacío muestra "Ingresa el nombre completo" con `aria-invalid` y `role="alert"`; blur en fecha vacía/incompleta/inválida/futura muestra el mensaje correspondiente ("Ingresa la fecha…", "Completa la fecha (dd/mm/aaaa)", "Fecha no válida", "No puede ser una fecha futura").
 
-- [ ] *(05.1)* Tipeo de fecha inserta `/` automático y acepta paste `12052023` → `12/05/2023` sin perder el formato; el botón calendario abre el picker nativo (`max` = hoy) y al elegir fecha el input queda en `dd/mm/aaaa`.
+- [x] *(05.1)* Tipeo de fecha inserta `/` automático y acepta paste `12052023` → `12/05/2023` sin perder el formato; el botón calendario abre el picker nativo (`max` = hoy) y al elegir fecha el input queda en `dd/mm/aaaa`.
 
-- [ ] *(05.1)* Intentar guardar con Enter o clic cuando hay errores marca ambos campos como tocados y revela los mensajes (no guarda).
+- [x] *(05.2)* Intentar guardar presionando Enter cuando hay errores marca ambos campos como tocados y revela los mensajes (no guarda). El botón Guardar queda `disabled` hasta válido por diseño, así que el clic sobre él no dispara envío; el intento se detecta interceptando Enter en el form.
 
-- [ ] Guardar con Enter funciona igual que con clic.
+  > **Resuelto (verificado 2026-09-23):** con el botón Guardar `disabled={!valid}`, el navegador bloquea el envío implícito del form y Enter no dispara `submit`. Se agregó `onKeyDown` en el form de `components/add-kid-modal.tsx` que, ante Enter sobre un `input type="text"` con el form inválido, ejecuta `setTouchedName(true)`/`setTouchedDate(true)` (mismos mensajes que en `blur`, sin guardar). `TEXTAREA`, `SELECT` y `BUTTON` se excluyen para no pisar el Enter nativo (nueva línea, abrir dropdown, calendario). Con el form válido, Enter guarda igual que el clic.
 
-- [ ] Cancelar, Esc y clic sobre el fondo cierran el modal sin guardar.
+- [x] Guardar con Enter funciona igual que con clic.
 
-- [ ] Tras guardar, el modal se cierra y el niño aparece al inicio de la sección de su sala.
+- [x] Cancelar, Esc y clic sobre el fondo cierran el modal sin guardar.
 
-- [ ] Recargar la página conserva el niño guardado (localStorage `opdaycare.kids.v1`).
+- [x] Tras guardar, el modal se cierra y el niño aparece al inicio de la sección de su sala.
 
-- [ ] El listado se agrupa dinámicamente por sala y muestra "SALA SOLES", "SALA ESTRELLAS" y "SALA LUNITAS" según existan niños; el conteo usa pluralización correcta.
+- [x] Recargar la página conserva el niño guardado (localStorage `opdaycare.kids.v1`).
 
-- [ ] La búsqueda (`?q=`) encuentra tanto a niños del mock como agregados.
+- [x] El listado se agrupa dinámicamente por sala y muestra "SALA SOLES", "SALA ESTRELLAS" y "SALA LUNITAS" según existan niños; el conteo usa pluralización correcta.
 
-- [ ] La tarjeta del niño agregado muestra iniciales, edad calculada, sala y badge VINCULAR, y **no** navega al pulsarla.
+- [x] La búsqueda (`?q=`) encuentra tanto a niños del mock como agregados.
 
-- [ ] Escribir "maní" o "lactosa" en alergias pinta el badge MANÍ/LACTOSA con la nota correspondiente; sin alergias/notas, ni badge ni nota.
+- [x] La tarjeta del niño agregado muestra iniciales, edad calculada, sala y badge VINCULAR, y **no** navega al pulsarla.
 
-- [ ] En viewport móvil el modal entra sin scroll horizontal y con scroll interno.
+- [x] Escribir "maní" o "lactosa" en alergias pinta el badge MANÍ/LACTOSA con la nota correspondiente; sin alergias/notas, ni badge ni nota.
 
-- [ ] *(05.1)* En desktop 1280×800 el modal completo entra sin necesidad de scroll; en móvil el header (Cancelar/Agregar niño/Guardar) queda `sticky` y siempre visible aunque el body scrollee.
+- [x] En viewport móvil el modal entra sin scroll horizontal y con scroll interno.
 
-- [ ] Ningún archivo en `app/` ni `components/` importa desde `data/` (verificable con grep).
+- [x] *(05.1)* En desktop 1280×800 el modal completo entra sin necesidad de scroll; en móvil el header (Cancelar/Agregar niño/Guardar) queda `sticky` y siempre visible aunque el body scrollee.
+
+- [x] Ningún archivo en `app/` ni `components/` importa desde `data/` (verificable con grep).
 
 ## Decisiones
 

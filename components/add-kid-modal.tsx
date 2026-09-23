@@ -3,6 +3,7 @@
 import {
   type ChangeEvent,
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   useEffect,
   useRef,
   useState,
@@ -56,6 +57,16 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  function handleFormKeyDown(event: ReactKeyboardEvent<HTMLFormElement>) {
+    if (event.key !== "Enter") return;
+    const el = event.target as HTMLInputElement;
+    if (el.tagName !== "INPUT" || el.type !== "text") return;
+    if (!valid) {
+      setTouchedName(true);
+      setTouchedDate(true);
+    }
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -136,6 +147,7 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
       <form
         noValidate
         onSubmit={handleSubmit}
+        onKeyDown={handleFormKeyDown}
         role="dialog"
         aria-modal="true"
         aria-label="Agregar niño"
