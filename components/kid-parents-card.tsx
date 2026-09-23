@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import type { Kid } from "@/lib/kids";
 import { PlusIcon } from "./icons";
 
@@ -6,7 +7,16 @@ const STATUS_CLASSES: Record<Kid["parents"][number]["statusLabel"], string> = {
   PENDIENTE: "bg-[#F7E7A6] text-[#9A7B1E]",
 };
 
-export default function KidParentsCard({ kid }: { kid: Kid }) {
+export default function KidParentsCard({
+  kid,
+  onAdd,
+  buttonRef,
+}: {
+  kid: Kid;
+  onAdd?: () => void;
+  buttonRef?: RefObject<HTMLButtonElement | null>;
+}) {
+  const atLimit = kid.parents.length >= 3;
   return (
     <div className="rounded-2xl border border-line bg-card px-[18px] py-4">
       <div className="mb-[14px] text-[12.5px] font-extrabold tracking-[0.8px] text-[#8A7C6D]">
@@ -36,12 +46,18 @@ export default function KidParentsCard({ kid }: { kid: Kid }) {
           </div>
         ))}
 
-        <button type="button" className="flex items-center gap-3 pt-2 text-left">
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={onAdd}
+          disabled={atLimit}
+          className="flex items-center gap-3 pt-2 text-left"
+        >
           <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full border-[1.5px] border-dashed border-[#D8CBBA] text-[#B0A290]">
             <PlusIcon />
           </span>
           <span className="font-extrabold text-[14.5px] text-terracotta-deep">
-            Vincular otro padre
+            {atLimit ? "Máximo 3 padres vinculados" : "Vincular otro padre"}
           </span>
         </button>
       </div>

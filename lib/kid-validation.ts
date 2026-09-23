@@ -75,3 +75,24 @@ export function isValidDraft(draft: { name: string; birthDate: string; room: str
     ROOMS.includes(draft.room)
   );
 }
+
+export function validateParentName(value: string): string | null {
+  if (value.trim().length <= 1) return "Ingresa el nombre";
+  return null;
+}
+
+export function validateParentEmail(value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed === "") return "Ingresa el email";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return "Email no válido";
+  return null;
+}
+
+export function generateInviteCode(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 5; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}

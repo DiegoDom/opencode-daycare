@@ -1,4 +1,4 @@
-export type ParentRole = "Mamá" | "Papá";
+export type ParentRole = "Mamá" | "Papá" | "Tutor/a";
 export type ParentStatus = "activa" | "invitación enviada";
 
 export interface KidParent {
