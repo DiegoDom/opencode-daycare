@@ -1,4 +1,11 @@
-export type PostType = "logro" | "actividad" | "anuncio";
+export type PostType =
+  | "comida"
+  | "siesta"
+  | "actividad"
+  | "logro"
+  | "animo"
+  | "foto"
+  | "anuncio";
 
 export interface Post {
   id: string;
@@ -12,8 +19,15 @@ export interface Post {
   time: string;
   publishedBy: string;
   audience: string;
+  recipients?: {
+    name: string;
+    initials: string;
+    avatarBg: string;
+    avatarColor: string;
+  }[];
   body: string;
   photo?: { label: string };
+  photos?: { src: string }[];
   likes: number;
   comments: number;
 }

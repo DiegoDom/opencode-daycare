@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Post } from "@/lib/feed";
 import { CommentIcon, HeartIcon, MegaphoneIcon, PhotoIcon } from "./icons";
 
@@ -5,17 +6,41 @@ const BADGES: Record<
   Post["type"],
   { label: string; bg: string; dot: string; text: string }
 > = {
-  logro: {
-    label: "LOGRO",
-    bg: "bg-badge-green-bg",
-    dot: "bg-badge-green",
-    text: "text-badge-green",
+  comida: {
+    label: "COMIDA",
+    bg: "bg-badge-honey-bg",
+    dot: "bg-badge-honey",
+    text: "text-badge-honey",
+  },
+  siesta: {
+    label: "SIESTA",
+    bg: "bg-badge-lavender-bg",
+    dot: "bg-badge-lavender",
+    text: "text-badge-lavender",
   },
   actividad: {
     label: "ACTIVIDAD",
     bg: "bg-badge-blue-bg",
     dot: "bg-badge-blue",
     text: "text-badge-blue",
+  },
+  logro: {
+    label: "LOGRO",
+    bg: "bg-badge-green-bg",
+    dot: "bg-badge-green",
+    text: "text-badge-green",
+  },
+  animo: {
+    label: "ÁNIMO",
+    bg: "bg-badge-rose-bg",
+    dot: "bg-badge-rose",
+    text: "text-badge-rose",
+  },
+  foto: {
+    label: "FOTO",
+    bg: "bg-badge-coral-bg",
+    dot: "bg-badge-coral",
+    text: "text-badge-coral",
   },
   anuncio: {
     label: "ANUNCIO",
@@ -35,7 +60,7 @@ export default function PostCard({ post }: { post: Post }) {
           className="flex h-11 w-11 flex-none items-center justify-center rounded-full font-display text-[17px] font-semibold"
           style={{ backgroundColor: post.author.avatarBg, color: post.author.avatarColor }}
         >
-          {post.type === "anuncio" ? <MegaphoneIcon /> : post.author.initials}
+          {post.author.initials === "" ? <MegaphoneIcon /> : post.author.initials}
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate font-display text-[16.5px] font-semibold text-ink">
@@ -55,9 +80,48 @@ export default function PostCard({ post }: { post: Post }) {
 
       <div className="mt-3 text-[12.5px] text-faint">{post.audience}</div>
 
+      {post.recipients && post.recipients.length > 0 ? (
+        <div
+          role="group"
+          aria-label={`Destinatarios: ${post.recipients.map((r) => r.name).join(", ")}`}
+          className="mt-2.5 flex items-center"
+        >
+          {post.recipients.slice(0, 4).map((recipient, i) => (
+            <span
+              key={`${recipient.name}-${i}`}
+              title={recipient.name}
+              className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-card font-display text-[11px] font-semibold ${
+                i > 0 ? "-ml-2" : ""
+              }`}
+              style={{ backgroundColor: recipient.avatarBg, color: recipient.avatarColor }}
+            >
+              {recipient.initials}
+            </span>
+          ))}
+          {post.recipients.length > 4 ? (
+            <span className="-ml-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#EFE6D9] font-display text-[11px] font-bold text-muted">
+              +{post.recipients.length - 4}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       <p className="mt-2.5 text-[15.5px] leading-[1.55] text-ink-soft">{post.body}</p>
 
-      {post.photo ? (
+      {post.photos ? (
+        <div
+          className={`mt-3.5 grid ${post.photos.length === 1 ? "grid-cols-1" : "grid-cols-2"} gap-2.5`}
+        >
+          {post.photos.map((photo, i) => (
+            <div
+              key={i}
+              className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-photo"
+            >
+              <Image src={photo.src} alt="" fill unoptimized className="object-cover" />
+            </div>
+          ))}
+        </div>
+      ) : post.photo ? (
         <div className="mt-3.5 flex h-[200px] flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-line-dashed bg-photo text-[#B0A290]">
           <PhotoIcon />
           <span className="text-[13.5px]">{post.photo.label}</span>
