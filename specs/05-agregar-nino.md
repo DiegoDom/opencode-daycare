@@ -81,43 +81,45 @@ Sigue los principios de la **SPEC 00 — Arquitectura** (Clean Architecture prag
 
 ## Criterios de aceptación
 
-- [ ] `npm run lint` termina sin errores ni warnings.
+- [x] `npm run lint` termina sin errores ni warnings.
 
-- [ ] `npm run build` termina correctamente.
+- [x] `npm run build` termina correctamente.
 
-- [ ] Clic en "Agregar niño" abre el modal; la URL sigue siendo `/kids` (sin navegación ni recarga).
+- [x] Clic en "Agregar niño" abre el modal; la URL sigue siendo `/kids` (sin navegación ni recarga).
 
-- [ ] El modal muestra los 5 campos del mockup y el botón Guardar deshabilitado con los campos vacíos.
+- [x] El modal muestra los 5 campos del mockup y el botón Guardar deshabilitado con los campos vacíos.
 
-- [ ] Guardar se habilita solo cuando nombre no vacío, fecha real `dd/mm/aaaa` no futura y sala seleccionada.
+- [x] Guardar se habilita solo cuando nombre no vacío, fecha real `dd/mm/aaaa` no futura y sala seleccionada.
 
-- [ ] *(05.1)* Blur en nombre vacío muestra "Ingresa el nombre completo" con `aria-invalid` y `role="alert"`; blur en fecha vacía/incompleta/inválida/futura muestra el mensaje correspondiente ("Ingresa la fecha…", "Completa la fecha (dd/mm/aaaa)", "Fecha no válida", "No puede ser una fecha futura").
+- [x] *(05.1)* Blur en nombre vacío muestra "Ingresa el nombre completo" con `aria-invalid` y `role="alert"`; blur en fecha vacía/incompleta/inválida/futura muestra el mensaje correspondiente ("Ingresa la fecha…", "Completa la fecha (dd/mm/aaaa)", "Fecha no válida", "No puede ser una fecha futura").
 
-- [ ] *(05.1)* Tipeo de fecha inserta `/` automático y acepta paste `12052023` → `12/05/2023` sin perder el formato; el botón calendario abre el picker nativo (`max` = hoy) y al elegir fecha el input queda en `dd/mm/aaaa`.
+- [x] *(05.1)* Tipeo de fecha inserta `/` automático y acepta paste `12052023` → `12/05/2023` sin perder el formato; el botón calendario abre el picker nativo (`max` = hoy) y al elegir fecha el input queda en `dd/mm/aaaa`.
 
 - [ ] *(05.1)* Intentar guardar con Enter o clic cuando hay errores marca ambos campos como tocados y revela los mensajes (no guarda).
 
-- [ ] Guardar con Enter funciona igual que con clic.
+  > **FAIL (verificado 2026-09-23):** con el botón Guardar deshabilitado, el navegador bloquea el envío implícito del form (`form[role="dialog"]` con botón submit `disabled`); Enter en un input no dispara `submit` y Guardar no es cliqueable, así que `handleSubmit` no ejecuta `setTouchedName(true)`/`setTouchedDate(true)` y los mensajes solo aparecen vía `blur`, nunca al "intentar guardar". Ver `components/add-kid-modal.tsx:155-162` (botón submit con `disabled={!valid}`).
 
-- [ ] Cancelar, Esc y clic sobre el fondo cierran el modal sin guardar.
+- [x] Guardar con Enter funciona igual que con clic.
 
-- [ ] Tras guardar, el modal se cierra y el niño aparece al inicio de la sección de su sala.
+- [x] Cancelar, Esc y clic sobre el fondo cierran el modal sin guardar.
 
-- [ ] Recargar la página conserva el niño guardado (localStorage `opdaycare.kids.v1`).
+- [x] Tras guardar, el modal se cierra y el niño aparece al inicio de la sección de su sala.
 
-- [ ] El listado se agrupa dinámicamente por sala y muestra "SALA SOLES", "SALA ESTRELLAS" y "SALA LUNITAS" según existan niños; el conteo usa pluralización correcta.
+- [x] Recargar la página conserva el niño guardado (localStorage `opdaycare.kids.v1`).
 
-- [ ] La búsqueda (`?q=`) encuentra tanto a niños del mock como agregados.
+- [x] El listado se agrupa dinámicamente por sala y muestra "SALA SOLES", "SALA ESTRELLAS" y "SALA LUNITAS" según existan niños; el conteo usa pluralización correcta.
 
-- [ ] La tarjeta del niño agregado muestra iniciales, edad calculada, sala y badge VINCULAR, y **no** navega al pulsarla.
+- [x] La búsqueda (`?q=`) encuentra tanto a niños del mock como agregados.
 
-- [ ] Escribir "maní" o "lactosa" en alergias pinta el badge MANÍ/LACTOSA con la nota correspondiente; sin alergias/notas, ni badge ni nota.
+- [x] La tarjeta del niño agregado muestra iniciales, edad calculada, sala y badge VINCULAR, y **no** navega al pulsarla.
 
-- [ ] En viewport móvil el modal entra sin scroll horizontal y con scroll interno.
+- [x] Escribir "maní" o "lactosa" en alergias pinta el badge MANÍ/LACTOSA con la nota correspondiente; sin alergias/notas, ni badge ni nota.
 
-- [ ] *(05.1)* En desktop 1280×800 el modal completo entra sin necesidad de scroll; en móvil el header (Cancelar/Agregar niño/Guardar) queda `sticky` y siempre visible aunque el body scrollee.
+- [x] En viewport móvil el modal entra sin scroll horizontal y con scroll interno.
 
-- [ ] Ningún archivo en `app/` ni `components/` importa desde `data/` (verificable con grep).
+- [x] *(05.1)* En desktop 1280×800 el modal completo entra sin necesidad de scroll; en móvil el header (Cancelar/Agregar niño/Guardar) queda `sticky` y siempre visible aunque el body scrollee.
+
+- [x] Ningún archivo en `app/` ni `components/` importa desde `data/` (verificable con grep).
 
 ## Decisiones
 
