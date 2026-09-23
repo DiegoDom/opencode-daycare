@@ -19,6 +19,7 @@ import { CloseIcon, PlusIcon } from "./icons";
 import type { Post } from "@/lib/feed";
 import type { PostType } from "@/lib/feed";
 import { buildPost, validateDescription } from "@/lib/post-utils";
+import { normalize } from "@/lib/kid-utils";
 import type { Kid } from "@/lib/kids";
 
 interface CreatePostShellProps {
@@ -120,10 +121,30 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
     paraGroupRef.current?.querySelector("button")?.focus();
   }, []);
 
-  const kids = useMemo(
-    () => [...addedKids, ...baseKids].filter((kid) => kid.room === "Soles"),
-    [addedKids, baseKids],
-  );
+  const kids = useMemo(() => {
+    const baseSoles = baseKids.filter((kid) => kid.room === "Soles");
+    const baseNames = new Set(baseSoles.map((kid) => normalize(kid.name)));
+    const seenIds = new Set<string>();
+    const seenNames = new Set<string>();
+    const merged: Kid[] = [];
+    for (const kid of [...addedKids, ...baseSoles]) {
+      const key = normalize(kid.name);
+      if (seenIds.has(kid.id) || seenNames.has(key)) continue;
+      if (baseNames.has(key) && !baseSoles.some((base) => base.id === kid.id)) continue;
+      seenIds.add(kid.id);
+      seenNames.add(key);
+      merged.push(kid);
+    }
+    return merged.sort((a, b) => a.name.localeCompare(b.name));
+  }, [addedKids, baseKids]);
+  const firstNameCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const kid of kids) {
+      const first = kid.name.split(" ")[0];
+      counts.set(first, (counts.get(first) ?? 0) + 1);
+    }
+    return counts;
+  }, [kids]);
   const selectedKids = useMemo(
     () =>
       recipients
@@ -245,7 +266,7 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
     const post = buildPost({
       type: type as PostType,
       recipients: selectedKids.map((kid) => ({
-        name: kid.name.split(" ")[0],
+        name: kid.name,
         initials: kid.initials,
         avatarBg: kid.avatarBg,
         avatarColor: kid.avatarColor,
@@ -308,6 +329,9 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
           >
             {kids.map((kid) => {
               const selected = recipients.includes(kid.id);
+              const first = kid.name.split(" ")[0];
+              const label =
+                (firstNameCounts.get(first) ?? 0) > 1 ? kid.name : first;
               return (
                 <button
                   key={kid.id}
@@ -315,6 +339,7 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
                   onClick={() => toggleKid(kid.id)}
                   disabled={wholeRoom}
                   aria-pressed={selected}
+                  aria-label={kid.name}
                   aria-invalid={!!recipientError}
                   aria-describedby={recipientError ? "err-para" : undefined}
                   className={`${BASE_PILL} flex items-center gap-2 py-[6px] pl-[6px] pr-[14px] disabled:cursor-not-allowed disabled:opacity-[0.4] ${
@@ -327,7 +352,7 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
                   >
                     {kid.initials}
                   </span>
-                  {kid.name.split(" ")[0]}
+                  {label}
                 </button>
               );
             })}

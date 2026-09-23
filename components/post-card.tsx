@@ -80,6 +80,32 @@ export default function PostCard({ post }: { post: Post }) {
 
       <div className="mt-3 text-[12.5px] text-faint">{post.audience}</div>
 
+      {post.recipients && post.recipients.length > 0 ? (
+        <div
+          role="group"
+          aria-label={`Destinatarios: ${post.recipients.map((r) => r.name).join(", ")}`}
+          className="mt-2.5 flex items-center"
+        >
+          {post.recipients.slice(0, 4).map((recipient, i) => (
+            <span
+              key={`${recipient.name}-${i}`}
+              title={recipient.name}
+              className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-card font-display text-[11px] font-semibold ${
+                i > 0 ? "-ml-2" : ""
+              }`}
+              style={{ backgroundColor: recipient.avatarBg, color: recipient.avatarColor }}
+            >
+              {recipient.initials}
+            </span>
+          ))}
+          {post.recipients.length > 4 ? (
+            <span className="-ml-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#EFE6D9] font-display text-[11px] font-bold text-muted">
+              +{post.recipients.length - 4}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       <p className="mt-2.5 text-[15.5px] leading-[1.55] text-ink-soft">{post.body}</p>
 
       {post.photos ? (

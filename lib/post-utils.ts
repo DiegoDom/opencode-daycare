@@ -27,10 +27,11 @@ export function validateDescription(value: string): string | null {
 }
 
 export function buildAudience(names: string[]): string {
-  if (names.length === 0) return "Para: sin destinatarios";
-  if (names.length === 1) return `Para: familia de ${names[0]}`;
-  const head = names.slice(0, -1).join(", ");
-  return `Para: familia de ${head} y ${names[names.length - 1]}`;
+  const firstNames = names.map((name) => name.trim().split(/\s+/)[0] ?? name);
+  if (firstNames.length === 0) return "Para: sin destinatarios";
+  if (firstNames.length === 1) return `Para: familia de ${firstNames[0]}`;
+  const head = firstNames.slice(0, -1).join(", ");
+  return `Para: familia de ${head} y ${firstNames[firstNames.length - 1]}`;
 }
 
 export function currentTimeHHMM(): string {
@@ -57,6 +58,7 @@ export function buildPost(draft: PostDraft): Post {
     audience: wholeRoom
       ? "Para: toda la sala"
       : buildAudience(draft.recipients.map((recipient) => recipient.name)),
+    recipients: wholeRoom ? undefined : draft.recipients,
     body: draft.description.trim(),
     photos: draft.photos?.map((src) => ({ src })),
     likes: 0,

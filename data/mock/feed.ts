@@ -19,6 +19,12 @@ export interface Post {
   time: string;
   publishedBy: string;
   audience: string;
+  recipients?: {
+    name: string;
+    initials: string;
+    avatarBg: string;
+    avatarColor: string;
+  }[];
   body: string;
   photo?: { label: string };
   photos?: { src: string }[];
