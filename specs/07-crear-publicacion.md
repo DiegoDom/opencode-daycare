@@ -1,6 +1,6 @@
 # SPEC 07 — Crear publicación desde el feed (`/publicar`)
 
-> **Estado:** Approved **Depende de:** SPEC 00 — Arquitectura, SPEC 01 — Home Feed, SPEC 05 — Agregar niño, SPEC 06 — Vincular padre **Fecha:** 2026-09-23 **Objetivo:** Permitir crear una nueva publicación en `/publicar` (réplica de `crear-publicacion.dc.html`) con destinatario múltiple de niños de Sala Soles o "Toda la sala" (excluyentes), tipo y descripción obligatorios, fotos opcionales con upload/preview y validación inline, que al publicar persiste en localStorage y aparece al tope del feed de `/`.
+> **Estado:** Implemented **Depende de:** SPEC 00 — Arquitectura, SPEC 01 — Home Feed, SPEC 05 — Agregar niño, SPEC 06 — Vincular padre **Fecha:** 2026-09-23 **Objetivo:** Permitir crear una nueva publicación en `/publicar` (réplica de `crear-publicacion.dc.html`) con destinatario múltiple de niños de Sala Soles o "Toda la sala" (excluyentes), tipo y descripción obligatorios, fotos opcionales con upload/preview y validación inline, que al publicar persiste en localStorage y aparece al tope del feed de `/`.
 
 ## Alcance
 

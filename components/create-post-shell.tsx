@@ -1,6 +1,9 @@
 "use client";
 
+/* eslint-disable jsx-a11y/role-supports-aria-props -- SPEC 07 exige aria-invalid en los grupos de pills */
+
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   type ChangeEvent,
@@ -436,11 +439,17 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
           />
           <div className="flex flex-wrap gap-3">
             {photos.map((dataUrl, index) => (
-              <div
-                key={`${dataUrl.slice(0, 32)}-${index}`}
-                className="relative h-24 w-24 overflow-hidden rounded-[14px] border border-line bg-photo"
-              >
-                <img src={dataUrl} alt="" className="h-full w-full object-cover" />
+<div
+                  key={`${dataUrl.slice(0, 32)}-${index}`}
+                  className="relative h-24 w-24 overflow-hidden rounded-[14px] border border-line bg-photo"
+                >
+                  <Image
+                    src={dataUrl}
+                    alt=""
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
                 <button
                   type="button"
                   onClick={() => removePhoto(index)}

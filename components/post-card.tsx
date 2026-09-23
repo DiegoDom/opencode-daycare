@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Post } from "@/lib/feed";
 import { CommentIcon, HeartIcon, MegaphoneIcon, PhotoIcon } from "./icons";
 
@@ -86,12 +87,12 @@ export default function PostCard({ post }: { post: Post }) {
           className={`mt-3.5 grid ${post.photos.length === 1 ? "grid-cols-1" : "grid-cols-2"} gap-2.5`}
         >
           {post.photos.map((photo, i) => (
-            <img
+            <div
               key={i}
-              src={photo.src}
-              alt=""
-              className="aspect-[4/3] w-full rounded-2xl object-cover"
-            />
+              className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-photo"
+            >
+              <Image src={photo.src} alt="" fill unoptimized className="object-cover" />
+            </div>
           ))}
         </div>
       ) : post.photo ? (
