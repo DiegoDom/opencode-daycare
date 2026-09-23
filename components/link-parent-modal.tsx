@@ -42,13 +42,6 @@ export default function LinkParentModal({ kidName, onClose, onSave }: LinkParent
     validateParentName(name) === null && validateParentEmail(email) === null;
 
   useEffect(() => {
-    const previouslyFocused = document.activeElement;
-    return () => {
-      if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
-    };
-  }, []);
-
-  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
@@ -81,6 +74,14 @@ export default function LinkParentModal({ kidName, onClose, onSave }: LinkParent
         aria-label={`Vincular padre a ${kidName}`}
         className="flex max-h-[min(85dvh,720px)] w-[min(480px,calc(100vw-24px))] flex-col overflow-hidden rounded-[24px] border border-line bg-[#FBF4EC] shadow-[0_20px_50px_-24px_rgba(63,54,46,0.35)]"
       >
+        <button
+          type="submit"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only"
+        >
+          Enviar invitación
+        </button>
         <header className="sticky top-0 z-10 flex flex-none items-center justify-between border-b border-line bg-[#FBF4EC] px-5 py-[18px] md:px-[26px]">
           <div className="min-w-0 pr-2">
             <div className="truncate font-display text-[18px] font-semibold leading-tight text-ink">

@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import type { Kid } from "@/lib/kids";
 import { PlusIcon } from "./icons";
 
@@ -6,7 +7,15 @@ const STATUS_CLASSES: Record<Kid["parents"][number]["statusLabel"], string> = {
   PENDIENTE: "bg-[#F7E7A6] text-[#9A7B1E]",
 };
 
-export default function KidParentsCard({ kid, onAdd }: { kid: Kid; onAdd?: () => void }) {
+export default function KidParentsCard({
+  kid,
+  onAdd,
+  buttonRef,
+}: {
+  kid: Kid;
+  onAdd?: () => void;
+  buttonRef?: RefObject<HTMLButtonElement | null>;
+}) {
   const atLimit = kid.parents.length >= 3;
   return (
     <div className="rounded-2xl border border-line bg-card px-[18px] py-4">
@@ -38,6 +47,7 @@ export default function KidParentsCard({ kid, onAdd }: { kid: Kid; onAdd?: () =>
         ))}
 
         <button
+          ref={buttonRef}
           type="button"
           onClick={onAdd}
           disabled={atLimit}

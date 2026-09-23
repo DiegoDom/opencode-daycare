@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Kid, KidParent } from "@/lib/kids";
 import KidProfileHeader from "./kid-profile-header";
 import KidDataCard from "./kid-data-card";
@@ -31,6 +31,7 @@ function initialsOf(name: string): string {
 export default function KidProfileShell({ baseKid }: { baseKid: Kid }) {
   const [displayKid, setDisplayKid] = useState<Kid>(baseKid);
   const [modalOpen, setModalOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -48,6 +49,11 @@ export default function KidProfileShell({ baseKid }: { baseKid: Kid }) {
     }, 0);
     return () => clearTimeout(timer);
   }, [baseKid.id]);
+
+  function closeModal() {
+    setModalOpen(false);
+    triggerRef.current?.focus();
+  }
 
   function handleSave(draft: LinkParentDraft) {
     const { avatarBg, avatarColor } = PALETTE[displayKid.parents.length % PALETTE.length];
@@ -77,7 +83,7 @@ export default function KidProfileShell({ baseKid }: { baseKid: Kid }) {
       // localStorage deshabilitado: vive solo en memoria durante la sesión
     }
     setDisplayKid(updated);
-    setModalOpen(false);
+    closeModal();
   }
 
   return (
@@ -92,14 +98,18 @@ export default function KidProfileShell({ baseKid }: { baseKid: Kid }) {
 
         <div className="flex flex-col gap-[14px] md:w-[300px] md:flex-none">
           <KidSummaryCard />
-          <KidParentsCard kid={displayKid} onAdd={() => setModalOpen(true)} />
+          <KidParentsCard
+            kid={displayKid}
+            onAdd={() => setModalOpen(true)}
+            buttonRef={triggerRef}
+          />
         </div>
       </div>
 
       {modalOpen && (
         <LinkParentModal
           kidName={displayKid.name}
-          onClose={() => setModalOpen(false)}
+          onClose={closeModal}
           onSave={handleSave}
         />
       )}
