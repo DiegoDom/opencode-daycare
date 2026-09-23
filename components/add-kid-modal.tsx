@@ -1,6 +1,20 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { CalendarIcon } from "./icons";
+import {
+  formatBirthDateInput,
+  formatISOToInput,
+  todayISO,
+  validateBirthDate,
+  validateName,
+} from "@/lib/kid-validation";
 
 export interface AddKidDraft {
   name: string;
@@ -17,40 +31,23 @@ interface AddKidModalProps {
   onSave: (draft: AddKidDraft) => void;
 }
 
-export function parseBirthDate(value: string): Date | null {
-  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value.trim());
-  if (!match) return null;
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  const date = new Date(year, month - 1, day);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-  return date;
-}
-
-function isValidBirthDate(value: string): boolean {
-  const date = parseBirthDate(value);
-  if (!date) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return date.getTime() <= today.getTime();
-}
-
 export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [room, setRoom] = useState(ROOMS[0]);
   const [allergies, setAllergies] = useState("");
   const [notes, setNotes] = useState("");
+  const [touchedName, setTouchedName] = useState(false);
+  const [touchedDate, setTouchedDate] = useState(false);
+  const datePickerRef = useRef<HTMLInputElement>(null);
+  const birthDateInputRef = useRef<HTMLInputElement>(null);
 
+  const nameError = touchedName ? validateName(name) : undefined;
+  const dateError = touchedDate ? validateBirthDate(birthDate) : undefined;
   const valid =
-    name.trim() !== "" && isValidBirthDate(birthDate) && ROOMS.includes(room);
+    validateName(name) === undefined &&
+    validateBirthDate(birthDate) === undefined &&
+    ROOMS.includes(room);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -62,7 +59,11 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!valid) return;
+    if (!valid) {
+      setTouchedName(true);
+      setTouchedDate(true);
+      return;
+    }
     onSave({
       name: name.trim(),
       birthDate: birthDate.trim(),
@@ -72,9 +73,62 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
     });
   }
 
+  function handleBirthDateChange(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target;
+    const prevValue = birthDate;
+    const prevCursor = input.selectionStart ?? prevValue.length;
+    const formatted = formatBirthDateInput(input.value);
+
+    // Preserve cursor when auto-inserting "/"
+    let nextCursor = prevCursor;
+    if (formatted.length > prevValue.length && formatted[prevCursor] === "/") {
+      nextCursor = prevCursor + 1;
+    } else if (formatted.length < prevValue.length) {
+      // Deleting: if we removed a "/", step back
+      if (prevValue[prevCursor - 1] === "/" && formatted.length < prevValue.length) {
+        nextCursor = Math.max(0, prevCursor - 1);
+      }
+    }
+    setBirthDate(formatted);
+    requestAnimationFrame(() => {
+      if (birthDateInputRef.current) {
+        birthDateInputRef.current.setSelectionRange(nextCursor, nextCursor);
+      }
+    });
+    if (!touchedDate && formatted.length > 0) setTouchedDate(false);
+  }
+
+  function openDatePicker() {
+    const picker = datePickerRef.current;
+    if (!picker) return;
+    try {
+      if (typeof picker.showPicker === "function") {
+        picker.showPicker();
+      } else {
+        picker.click();
+      }
+    } catch {
+      picker.click();
+    }
+  }
+
+  function handlePickerChange(event: ChangeEvent<HTMLInputElement>) {
+    const iso = event.target.value;
+    if (!iso) return;
+    setBirthDate(formatISOToInput(iso));
+    setTouchedDate(true);
+    // Clear picker value so same date can be picked again if needed
+    event.target.value = "";
+  }
+
+  const inputBase =
+    "w-full rounded-[14px] border-[1.5px] bg-white px-4 py-[11px] text-[15px] text-ink outline-none placeholder:text-[#B6A99B] focus:border-coral";
+  const inputDefault = "border-[#EADFD0]";
+  const inputError = "border-[#E8B4A8] bg-[#FFF5F3] focus:border-[#E8B4A8]";
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 md:p-4"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -85,9 +139,9 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Agregar niño"
-        className="flex max-h-[90vh] w-full max-w-[520px] flex-col overflow-hidden rounded-[24px] border border-line bg-[#FBF4EC] shadow-[0_20px_50px_-24px_rgba(63,54,46,0.35)]"
+        className="flex max-h-[min(85dvh,720px)] w-[min(520px,calc(100vw-24px))] flex-col overflow-hidden rounded-[24px] border border-line bg-[#FBF4EC] shadow-[0_20px_50px_-24px_rgba(63,54,46,0.35)]"
       >
-        <header className="flex flex-none items-center justify-between border-b border-line px-[26px] py-[20px]">
+        <header className="sticky top-0 z-10 flex flex-none items-center justify-between border-b border-line bg-[#FBF4EC] px-5 py-4 md:px-[26px] md:py-[20px]">
           <button
             type="button"
             onClick={onClose}
@@ -107,44 +161,106 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-[26px] py-6">
-          <label className="mb-2 block text-[12px] font-extrabold tracking-[0.7px] text-muted">
-            NOMBRE COMPLETO
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Ej. Martina López"
-            autoComplete="off"
-            autoFocus
-            className="mb-[18px] w-full rounded-[14px] border-[1.5px] border-[#EADFD0] bg-white px-4 py-[13px] text-[15px] text-ink outline-none placeholder:text-[#B6A99B] focus:border-coral"
-          />
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-[26px]">
+          <div className="mb-3.5">
+            <label
+              htmlFor="kid-name"
+              className="mb-[6px] block text-[12px] font-extrabold tracking-[0.7px] text-muted"
+            >
+              NOMBRE COMPLETO
+            </label>
+            <input
+              id="kid-name"
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onBlur={() => setTouchedName(true)}
+              placeholder="Ej. Martina López"
+              autoComplete="off"
+              autoFocus
+              aria-invalid={!!nameError}
+              aria-describedby={nameError ? "err-kid-name" : undefined}
+              className={`${inputBase} ${nameError ? inputError : inputDefault}`}
+            />
+            {nameError ? (
+              <p
+                id="err-kid-name"
+                role="alert"
+                className="mt-1.5 text-[12px] font-semibold leading-none text-terracotta"
+              >
+                {nameError}
+              </p>
+            ) : (
+              <p className="mt-1.5 hidden text-[12px] leading-none" aria-hidden="true">
+                &nbsp;
+              </p>
+            )}
+          </div>
 
-          <div className="mb-[18px] flex gap-[14px]">
+          <div className="mb-3.5 flex gap-3">
             <div className="min-w-0 flex-1">
-              <label className="mb-2 block text-[12px] font-extrabold tracking-[0.7px] text-muted">
+              <label
+                htmlFor="kid-birthdate"
+                className="mb-[6px] block text-[12px] font-extrabold tracking-[0.7px] text-muted"
+              >
                 FECHA DE NACIMIENTO
               </label>
-              <input
-                type="text"
-                value={birthDate}
-                onChange={(event) => setBirthDate(event.target.value)}
-                placeholder="dd/mm/aaaa"
-                autoComplete="off"
-                inputMode="numeric"
-                className="w-full rounded-[14px] border-[1.5px] border-[#EADFD0] bg-white px-4 py-[13px] text-[15px] text-ink outline-none placeholder:text-[#B6A99B] focus:border-coral"
-              />
+              <div className="relative">
+                <input
+                  ref={birthDateInputRef}
+                  id="kid-birthdate"
+                  type="text"
+                  value={birthDate}
+                  onChange={handleBirthDateChange}
+                  onBlur={() => setTouchedDate(true)}
+                  placeholder="dd/mm/aaaa"
+                  autoComplete="off"
+                  inputMode="numeric"
+                  aria-invalid={!!dateError}
+                  aria-describedby={dateError ? "err-kid-birthdate" : undefined}
+                  className={`${inputBase} pr-10 ${dateError ? inputError : inputDefault}`}
+                />
+                <button
+                  type="button"
+                  onClick={openDatePicker}
+                  aria-label="Abrir calendario"
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#B0A290] hover:bg-[#FBF4EC] hover:text-ink"
+                >
+                  <CalendarIcon className="h-[18px] w-[18px]" />
+                </button>
+                <input
+                  ref={datePickerRef}
+                  type="date"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  max={todayISO()}
+                  onChange={handlePickerChange}
+                  className="sr-only"
+                />
+              </div>
+              {dateError ? (
+                <p
+                  id="err-kid-birthdate"
+                  role="alert"
+                  className="mt-1.5 text-[12px] font-semibold leading-none text-terracotta"
+                >
+                  {dateError}
+                </p>
+              ) : null}
             </div>
             <div className="min-w-0 flex-1">
-              <label className="mb-2 block text-[12px] font-extrabold tracking-[0.7px] text-muted">
+              <label
+                htmlFor="kid-room"
+                className="mb-[6px] block text-[12px] font-extrabold tracking-[0.7px] text-muted"
+              >
                 SALA
               </label>
               <div className="relative">
                 <select
+                  id="kid-room"
                   value={room}
                   onChange={(event) => setRoom(event.target.value)}
-                  className="w-full appearance-none rounded-[14px] border-[1.5px] border-[#EADFD0] bg-white px-4 py-[13px] pr-10 text-[15px] font-bold text-ink outline-none focus:border-coral"
+                  className="w-full appearance-none rounded-[14px] border-[1.5px] border-[#EADFD0] bg-white px-4 py-[11px] pr-10 text-[15px] font-bold text-ink outline-none focus:border-coral"
                 >
                   {ROOMS.map((value) => (
                     <option key={value} value={value}>
@@ -169,28 +285,41 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
             </div>
           </div>
 
-          <label className="mb-2 block text-[12px] font-extrabold tracking-[0.7px] text-muted">
-            ALERGIAS (ETIQUETAS)
-          </label>
-          <input
-            type="text"
-            value={allergies}
-            onChange={(event) => setAllergies(event.target.value)}
-            placeholder="Ej. Maní, Lactosa"
-            autoComplete="off"
-            className="mb-[18px] w-full rounded-[14px] border-[1.5px] border-[#EADFD0] bg-white px-4 py-[13px] text-[15px] text-ink outline-none placeholder:text-[#B6A99B] focus:border-coral"
-          />
+          <div className="mb-3.5">
+            <label
+              htmlFor="kid-allergies"
+              className="mb-[6px] block text-[12px] font-extrabold tracking-[0.7px] text-muted"
+            >
+              ALERGIAS (ETIQUETAS)
+            </label>
+            <input
+              id="kid-allergies"
+              type="text"
+              value={allergies}
+              onChange={(event) => setAllergies(event.target.value)}
+              placeholder="Ej. Maní, Lactosa"
+              autoComplete="off"
+              className={`${inputBase} ${inputDefault}`}
+            />
+          </div>
 
-          <label className="mb-2 block text-[12px] font-extrabold tracking-[0.7px] text-muted">
-            NOTAS MÉDICAS
-          </label>
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="Indicaciones, medicación, contactos…"
-            className="w-full resize-y rounded-[14px] border-[1.5px] border-[#EADFD0] bg-white px-4 py-[13px] text-[15px] leading-[1.5] text-ink outline-none placeholder:text-[#B6A99B] focus:border-coral"
-            style={{ minHeight: 90 }}
-          />
+          <div>
+            <label
+              htmlFor="kid-notes"
+              className="mb-[6px] block text-[12px] font-extrabold tracking-[0.7px] text-muted"
+            >
+              NOTAS MÉDICAS
+            </label>
+            <textarea
+              id="kid-notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Indicaciones, medicación, contactos…"
+              rows={2}
+              className={`${inputBase} resize-none leading-[1.5] md:resize-y ${inputDefault}`}
+              style={{ minHeight: 72 }}
+            />
+          </div>
         </div>
       </form>
     </div>

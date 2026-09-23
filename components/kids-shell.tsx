@@ -1,11 +1,12 @@
 "use client";
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import AddKidModal, { type AddKidDraft, parseBirthDate } from "./add-kid-modal";
+import AddKidModal, { type AddKidDraft } from "./add-kid-modal";
 import KidCard from "./kid-card";
 import KidsEmpty from "./kids-empty";
 import KidsHeader from "./kids-header";
 import { matchesName, normalize } from "@/lib/kid-utils";
+import { parseBirthDate } from "@/lib/kid-validation";
 import type { Kid } from "@/lib/kids";
 
 const STORAGE_KEY = "opdaycare.kids.v1";
