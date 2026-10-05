@@ -132,3 +132,62 @@ create trigger users_set_updated_at
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- 4. RLS y políticas ---------------------------------------------------
+alter table public.users enable row level security;
+
+create policy users_select_own on public.users
+  for select
+  to authenticated
+  using (id = (select auth.uid()));
+
+create policy users_update_self on public.users
+  for update
+  to authenticated
+  using (id = (select auth.uid()))
+  with check (id = (select auth.uid()));
+
+-- Las dos que SPEC 08 especificó y dejó sin aplicar, copiadas textuales de su
+-- sección de diseño de RLS. Sin cambios: el predicado ahora sí tiene la tabla
+-- que consulta.
+--
+-- El subquery se evalúa con los privilegios de quien llama, así que el RLS de
+-- `users` se le aplica encima: con `users_select_own` el `exists` queda reducido
+-- a `u.id = auth.uid()`, que es lo que el predicado ya exige (fail-closed).
+create policy daycares_select_own on public.daycares
+  for select
+  to authenticated
+  using (exists (
+    select 1 from public.users u
+    where u.daycare_id = daycares.id
+      and u.id = (select auth.uid())
+      and u.status = 'active'
+  ));
+
+create policy daycares_update_admin on public.daycares
+  for update
+  to authenticated
+  using (exists (
+    select 1 from public.users u
+    where u.daycare_id = daycares.id
+      and u.id = (select auth.uid())
+      and u.status = 'active'
+      and u.role = 'admin'
+  ))
+  with check (exists (
+    select 1 from public.users u
+    where u.daycare_id = daycares.id
+      and u.id = (select auth.uid())
+      and u.status = 'active'
+      and u.role = 'admin'
+  ));
+
+-- Cierre de la escalada de privilegios: la parte que el RLS solo no resuelve.
+-- `users_update_self` con `with check (id = auth.uid())` deja a un padre
+-- actualizar su propia fila, y con UPDATE de tabla eso incluye `role = 'admin'`
+-- sobre sí mismo. El `with check` no lo detiene porque `id` no cambia. El
+-- privilegio por columna sí. Orden importa: el revoke va primero.
+revoke update on table public.users from anon, authenticated;
+
+grant update (full_name, avatar_url, notify_on_post, daily_summary_enabled)
+  on table public.users to authenticated;
