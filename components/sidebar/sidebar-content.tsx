@@ -9,9 +9,16 @@ interface SidebarContentProps {
   brand?: ReactNode;
   active?: NavId;
   onAction?: () => void;
+  isPending?: boolean;
 }
 
-export function SidebarContent({ user, brand = <Brand />, active, onAction }: SidebarContentProps) {
+export function SidebarContent({
+  user,
+  brand = <Brand />,
+  active,
+  onAction,
+  isPending,
+}: SidebarContentProps) {
   return (
     <>
       {brand}
@@ -20,7 +27,7 @@ export function SidebarContent({ user, brand = <Brand />, active, onAction }: Si
       </div>
       <Nav active={active} onNavigate={onAction} />
       <div className="mt-auto border-t border-line pt-3.5">
-        <UserFooter user={user} onAction={onAction} />
+        <UserFooter user={user} onAction={onAction} isPending={isPending} />
       </div>
     </>
   );

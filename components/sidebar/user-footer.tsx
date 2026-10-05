@@ -6,7 +6,15 @@ export interface SidebarUser {
   role: string;
 }
 
-export function UserFooter({ user, onAction }: { user: SidebarUser; onAction?: () => void }) {
+export function UserFooter({
+  user,
+  onAction,
+  isPending,
+}: {
+  user: SidebarUser;
+  onAction?: () => void;
+  isPending?: boolean;
+}) {
   return (
     <div className="flex items-center gap-[11px] px-2 py-1.5">
       <div className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full bg-avatar-sun font-display text-base font-semibold text-white">
@@ -21,7 +29,9 @@ export function UserFooter({ user, onAction }: { user: SidebarUser; onAction?: (
         onClick={onAction}
         title="Cerrar sesión"
         aria-label="Cerrar sesión"
-        className="flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-canvas text-muted"
+        disabled={isPending}
+        aria-busy={isPending}
+        className="flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-canvas text-muted disabled:opacity-60"
       >
         <LogoutIcon />
       </button>
