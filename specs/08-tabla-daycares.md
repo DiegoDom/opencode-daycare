@@ -1,6 +1,6 @@
 # SPEC 08 — Tabla raíz `daycares` y patrón de migraciones
 
-> **Estado:** Approved\
+> **Estado:** Implemented\
 > \*\***Depende de:** SPEC 00 — Arquitectura\
 > \*\***Fecha:** 2026-10-05\
 > \*\***Objetivo:** Crear la tabla raíz `daycares` en Supabase con la primera migración versionada del proyecto, fijando el patrón de migraciones del repo (archivo en `supabase/migrations/` aplicado vía MCP) con RLS habilitado y una fila semilla.
@@ -253,45 +253,45 @@ El punto 3 es el que más fácil se rompe: `daycares` no filtra nada si `users` 
 
 ## Criterios de aceptación
 
-- [ ] Existe `supabase/config.toml` con `project_id = "zvtgjvsqehhvutyrbsil"` y sin secciones inventadas para la CLI.
+- [x] Existe `supabase/config.toml` con `project_id = "zvtgjvsqehhvutyrbsil"` y sin secciones inventadas para la CLI.
 
-- [ ] `supabase/migrations/` contiene exactamente un archivo `.sql`, nombrado `<version>_create_daycares.sql`.
+- [x] `supabase/migrations/` contiene exactamente un archivo `.sql`, nombrado `<version>_create_daycares.sql`.
 
-- [ ] El prefijo `<version>` del archivo es igual a la `version` que registró `apply_migration` para `create_daycares` (verificable comparando con `list_migrations`).
+- [x] El prefijo `<version>` del archivo es igual a la `version` que registró `apply_migration` para `create_daycares` (verificable comparando con `list_migrations`).
 
-- [ ] El SQL del archivo commiteado es idéntico al enviado a `apply_migration`.
+- [x] El SQL del archivo commiteado es idéntico al enviado a `apply_migration`.
 
-- [ ] `list_tables(['public'])` lista `daycares`.
+- [x] `list_tables(['public'])` lista `daycares`.
 
-- [ ] `daycares` tiene exactamente 3 columnas: `id uuid` (PK, default `gen_random_uuid()`, `is_nullable = NO`), `name text` (`NOT NULL`), `created_at timestamptz` (default `now()`, `is_nullable = NO`). No existe `updated_at`.
+- [x] `daycares` tiene exactamente 3 columnas: `id uuid` (PK, default `gen_random_uuid()`, `is_nullable = NO`), `name text` (`NOT NULL`), `created_at timestamptz` (default `now()`, `is_nullable = NO`). No existe `updated_at`.
 
-- [ ] Existe el constraint `daycares_name_not_blank`; un `insert` con `name = ''` y otro con `name = ' '` fallan por check (probe dentro de `begin`/`rollback`).
+- [x] Existe el constraint `daycares_name_not_blank`; un `insert` con `name = ''` y otro con `name = ' '` fallan por check (probe dentro de `begin`/`rollback`).
 
-- [ ] `relrowsecurity = true` y `relforcerowsecurity = false` para `public.daycares`.
+- [x] `relrowsecurity = true` y `relforcerowsecurity = false` para `public.daycares`.
 
-- [ ] `pg_policies` devuelve 0 filas para `daycares`.
+- [x] `pg_policies` devuelve 0 filas para `daycares`.
 
-- [ ] `has_table_privilege('anon', 'public.daycares', 'SELECT')` es `true` (lo otorgan los `default privileges` del proyecto) y, aun con ese privilegio, un `select count(*)` ejecutado como `anon` devuelve 0 filas: el RLS sin políticas cierra la tabla.
+- [x] `has_table_privilege('anon', 'public.daycares', 'SELECT')` es `true` (lo otorgan los `default privileges` del proyecto) y, aun con ese privilegio, un `select count(*)` ejecutado como `anon` devuelve 0 filas: el RLS sin políticas cierra la tabla.
 
-- [ ] `public.daycares` tiene exactamente 1 fila, con `name = 'Guardería Sala Soles'` y un `id` `uuid` no nulo (ningún id hardcodeado en el SQL).
+- [x] `public.daycares` tiene exactamente 1 fila, con `name = 'Guardería Sala Soles'` y un `id` `uuid` no nulo (ningún id hardcodeado en el SQL).
 
-- [ ] Re-ejecutar el mismo SQL no crea una segunda fila con el mismo nombre.
+- [x] Re-ejecutar el mismo SQL no crea una segunda fila con el mismo nombre.
 
-- [ ] El archivo de migración no contiene ninguna sentencia `grant` ni `revoke`.
+- [x] El archivo de migración no contiene ninguna sentencia `grant` ni `revoke`.
 
-- [ ] `get_advisors('security')` no reporta ningún lint de nivel **WARN o superior** que nombre `daycares`. Los 2 WARN de `public.rls_auto_enable` son baseline preexistente y quedan fuera. El lint **INFO** `rls_enabled_no_policy` **sí aparece** y queda waived por la decisión de RLS con cero políticas: describe el deny-all deliberado de la tabla, no una fuga — la postura correcta se verifica por probe (`relrowsecurity = true`, 0 políticas, `anon` ve 0 filas), no por ausencia de lints.
+- [x] `get_advisors('security')` no reporta ningún lint de nivel **WARN o superior** que nombre `daycares`. Los 2 WARN de `public.rls_auto_enable` son baseline preexistente y quedan fuera. El lint **INFO** `rls_enabled_no_policy` **sí aparece** y queda waived por la decisión de RLS con cero políticas: describe el deny-all deliberado de la tabla, no una fuga — la postura correcta se verifica por probe (`relrowsecurity = true`, 0 políticas, `anon` ve 0 filas), no por ausencia de lints.
 
-- [ ] `get_advisors('performance')` no reporta ningún lint que nombre `daycares`.
+- [x] `get_advisors('performance')` no reporta ningún lint que nombre `daycares`.
 
-- [ ] El spec tiene una sección de diseño de RLS para `daycares` con: el predicado de ownership (`exists` sobre `users` filtrando `daycare_id`, `id = (select auth.uid())` y `status = 'active'`), el SQL de la política `select` y de la política `update` (solo `admin`, con `using` **y** `with check`), y la nota de que `update` requiere la política `select` para no devolver 0 filas en silencio.
+- [x] El spec tiene una sección de diseño de RLS para `daycares` con: el predicado de ownership (`exists` sobre `users` filtrando `daycare_id`, `id = (select auth.uid())` y `status = 'active'`), el SQL de la política `select` y de la política `update` (solo `admin`, con `using` **y** `with check`), y la nota de que `update` requiere la política `select` para no devolver 0 filas en silencio.
 
-- [ ] Ninguna de las políticas documentadas aparece aplicada: `pg_policies` devuelve 0 filas para `daycares` y el `.sql` commiteado no contiene `create policy`.
+- [x] Ninguna de las políticas documentadas aparece aplicada: `pg_policies` devuelve 0 filas para `daycares` y el `.sql` commiteado no contiene `create policy`.
 
-- [ ] `AGENTS.md` documenta el patrón de migraciones y ya no lista `supabase/migrations/` como pendiente; la CLI y el cliente siguen listados como pendientes.
+- [x] `AGENTS.md` documenta el patrón de migraciones y ya no lista `supabase/migrations/` como pendiente; la CLI y el cliente siguen listados como pendientes.
 
-- [ ] `npm run lint` y `npm run build` terminan sin errores.
+- [x] `npm run lint` y `npm run build` terminan sin errores.
 
-- [ ] `git status` no muestra `.env` ni ningún archivo de credenciales; el diff toca solo `supabase/` y `AGENTS.md`.
+- [x] `xgit status` no muestra `.env` ni ningún archivo de credenciales; el diff toca solo `supabase/` y `AGENTS.md`.
 
 ## Decisiones
 
