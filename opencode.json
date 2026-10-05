@@ -1,11 +1,24 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "lsp": true,
   "mcp": {
     "playwright": {
       "type": "local",
-      "command": ["npx", "-y", "@playwright/mcp@latest"],
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp@latest"
+      ],
       "enabled": true
     }
   },
-  "plugin": ["context-mode"]
+  "plugin": [
+    "context-mode"
+  ],
+  "references": {
+    "docs": {
+      "path": "../07-DB-Schema",
+      "description": "Schema de base de datos, tablas, columnas y referencias a crear, esto no esta implementado en la base de datos, es solo un esquema de referencia para el desarrollo del proyecto."
+    }
+  }
 }

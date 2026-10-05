@@ -34,6 +34,16 @@ Clean Architecture pragmática a 4 capas — convención en `specs/00-arquitectu
 - **Presentación (frameworks & drivers):** `app/` (Server Components) + `components/` (presentacional).
 - Regla de dependencia: siempre hacia adentro. `app/` **y** `components/` **jamás importan desde** `data/`**.**
 
+## Supabase
+
+Supabase es el backend objetivo (capa de Infraestructura: reemplaza los mocks de `data/mock/`). Estado actual: **BD vacía** — 0 tablas, 0 migraciones. El diseño de referencia vive en `../07-DB-Schema/opendaycare-database-schema.md` (exposto como project reference `docs`) y **no está implementado en la BD**: es la fuente de verdad para crear el schema.
+
+- **Acceso a la BD:** vía MCP de Supabase, no por código. `apply_migration` para DDL (migraciones versionadas), `execute_sql`/`query_logs` solo para lectura y diagnóstico. Nunca inventes `gen_random_uuid()`/ids: no hardcodees IDs generados en migraciones de datos.
+- **Skills obligatorias:** carga `supabase` antes de cualquier tarea de Supabase (auth, RLS, migraciones, Edge Functions, Realtime, Storage, logs) y `supabase-postgres-best-practices` antes de escribir o alterar SQL, índices, RLS o funciones. La skill `supabase` manda leer `https://supabase.com/changelog.md` para breaking changes antes de implementar — Supabase cambia rápido, no confíes en memoria de entrenamiento.
+- **Trampas de seguridad (resumen de la skill):** RLS habilitado en toda tabla de schema expuesto (`public`); `service_role`/secret key nunca en cliente (`NEXT_PUBLIC_*` va al navegador); `user_metadata` es editable por el usuario → autorizaciones en `app_metadata`; vistas con `security_invoker = true`; UPDATE necesita política SELECT o devuelve 0 filas en silencio; usa `TO authenticated` + predicado de ownership, nunca solo `TO authenticated`.
+- **Verifica:** tras cualquier migración, ejecuta un query de prueba (`list_tables`/`execute_sql`) y `get_advisors('security')` + `get_advisors('performance')`.
+- **Pendiente de montar:** falta el cliente (`@supabase/supabase-js` + `@supabase/ssr` para SSR en App Router), la CLI de Supabase (`npx supabase`) y el directorio `supabase/migrations/`. Credenciales: `SUPABASE_DB_PASSWORD` en `.env` (ver `.env.example`) — nunca commitear `.env`.
+
 ## Next.js 16 gotchas
 
 Read `node_modules/next/dist/docs/` before writing code; these differ from older Next.js:
@@ -47,6 +57,7 @@ Read `node_modules/next/dist/docs/` before writing code; these differ from older
 ## MCP / tooling
 
 - Playwright MCP (configured in `opencode.json`): put every artifact it generates (screenshots, console logs, snapshots) under `.playwright-mcp/` (gitignored).
+- Supabase MCP: connected to the project (`list_tables`, `apply_migration`, `execute_sql`, `get_advisors`, `query_logs`, branches, edge functions).
 - Context7 MCP: use it to pull current framework/library docs.
 - Spec-driven skills live in `.agents/skills/` (`spec`, `spec-impl`); specs go in `specs/` (`00-arquitectura.md` fija la convención Clean Architecture; las specs de features numeradas 01+ dependen de ella).
 
