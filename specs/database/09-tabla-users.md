@@ -1,9 +1,9 @@
 # SPEC 09 — Tabla `users`, sus enums y el RLS de ownership
 
-> **Estado:** Approved\
-****Depende de:** SPEC 00 — Arquitectura, SPEC 08 — Tabla raíz `daycares`\
-****Fecha:** 2026-10-05\
-****Objetivo:** Crear la tabla `users` con sus dos enums (`user_role`, `user_status`), el trigger `AFTER INSERT` sobre `auth.users` que la puebla, su propio RLS de ownership, las dos políticas de `daycares` que SPEC 08 dejó especificadas sin aplicar, y un seed de tres usuarios de prueba.
+> **Estado:** Implemented\
+> \*\***Depende de:** SPEC 00 — Arquitectura, SPEC 08 — Tabla raíz `daycares`\
+> \*\***Fecha:** 2026-10-05\
+> \*\***Objetivo:** Crear la tabla `users` con sus dos enums (`user_role`, `user_status`), el trigger `AFTER INSERT` sobre `auth.users` que la puebla, su propio RLS de ownership, las dos políticas de `daycares` que SPEC 08 dejó especificadas sin aplicar, y un seed de tres usuarios de prueba.
 
 ## Por qué existe este spec
 
@@ -319,97 +319,97 @@ El predicado de `daycares` contiene un `exists` sobre `public.users`, y ese subq
 
 Estructura:
 
-- [ ] Existen `public.user_role` con exactamente los labels `staff`, `parent`, `admin` y `public.user_status` con `pending`, `active`.
+- [x] Existen `public.user_role` con exactamente los labels `staff`, `parent`, `admin` y `public.user_status` con `pending`, `active`.
 
-- [ ] `list_tables(['public'])` lista `users` con exactamente 10 columnas: `id uuid` PK `is_nullable = NO` sin default y FK a `auth.users(id) on delete cascade`; `daycare_id uuid` `NOT NULL` FK a `daycares` con `on delete restrict`; `role user_role` `NOT NULL`; `status user_status` `NOT NULL` default `'active'`; `full_name text` `NOT NULL`; `avatar_url text` nullable; `notify_on_post boolean` `NOT NULL` default `true`; `daily_summary_enabled boolean` `NOT NULL` default `true`; `created_at timestamptz` y `updated_at timestamptz` ambos `NOT NULL` default `now()`.
+- [x] `list_tables(['public'])` lista `users` con exactamente 10 columnas: `id uuid` PK `is_nullable = NO` sin default y FK a `auth.users(id) on delete cascade`; `daycare_id uuid` `NOT NULL` FK a `daycares` con `on delete restrict`; `role user_role` `NOT NULL`; `status user_status` `NOT NULL` default `'active'`; `full_name text` `NOT NULL`; `avatar_url text` nullable; `notify_on_post boolean` `NOT NULL` default `true`; `daily_summary_enabled boolean` `NOT NULL` default `true`; `created_at timestamptz` y `updated_at timestamptz` ambos `NOT NULL` default `now()`.
 
-- [ ] Existe el constraint `users_full_name_not_blank`; un insert con `full_name = ''` y otro con `full_name = ' '` fallan por check (probe en `begin`/`rollback`).
+- [x] Existe el constraint `users_full_name_not_blank`; un insert con `full_name = ''` y otro con `full_name = ' '` fallan por check (probe en `begin`/`rollback`).
 
-- [ ] Existe el índice `users_daycare_id_idx` sobre `public.users (daycare_id)`.
+- [x] Existe el índice `users_daycare_id_idx` sobre `public.users (daycare_id)`.
 
-- [ ] Existen las funciones `public.set_updated_at()` (`security invoker`) y `public.handle_new_user()` (`security definer`), y **ambas** tienen `proconfig` con `search_path=""`.
+- [x] Existen las funciones `public.set_updated_at()` (`security invoker`) y `public.handle_new_user()` (`security definer`), y **ambas** tienen `proconfig` con `search_path=""`.
 
-- [ ] `pg_proc.proacl` de las dos funciones no otorga `EXECUTE` a `PUBLIC`, `anon`, `authenticated` ni `service_role`.
+- [x] `pg_proc.proacl` de las dos funciones no otorga `EXECUTE` a `PUBLIC`, `anon`, `authenticated` ni `service_role`.
 
-- [ ] Existen los triggers `users_set_updated_at` (`BEFORE UPDATE` sobre `public.users`) y `on_auth_user_created` (`AFTER INSERT` sobre `auth.users`).
+- [x] Existen los triggers `users_set_updated_at` (`BEFORE UPDATE` sobre `public.users`) y `on_auth_user_created` (`AFTER INSERT` sobre `auth.users`).
 
-- [ ] `relrowsecurity = true` y `relforcerowsecurity = false` para `public.users` y para `public.daycares`.
+- [x] `relrowsecurity = true` y `relforcerowsecurity = false` para `public.users` y para `public.daycares`.
 
-- [ ] `pg_policies` devuelve exactamente 4 filas en `public`: `users_select_own` y `users_update_self` (`for select` / `for update`, ambas `to authenticated`), `daycares_select_own` y `daycares_update_admin` (ambas `to authenticated`). Ninguna es `for insert` ni `for delete`.
+- [x] `pg_policies` devuelve exactamente 4 filas en `public`: `users_select_own` y `users_update_self` (`for select` / `for update`, ambas `to authenticated`), `daycares_select_own` y `daycares_update_admin` (ambas `to authenticated`). Ninguna es `for insert` ni `for delete`.
 
-- [ ] El SQL de las dos políticas de `daycares` es idéntico al de la sección de diseño de RLS del SPEC 08.
+- [x] El SQL de las dos políticas de `daycares` es idéntico al de la sección de diseño de RLS del SPEC 08.
 
-- [ ] El archivo `supabase/migrations/` contiene exactamente dos `.sql`; el prefijo `<version>` del de `users` es igual a la `version` que registró `apply_migration` para `create_users`, y su contenido es idéntico al enviado.
+- [x] El archivo `supabase/migrations/` contiene exactamente dos `.sql`; el prefijo `<version>` del de `users` es igual a la `version` que registró `apply_migration` para `create_users`, y su contenido es idéntico al enviado.
 
-- [ ] El archivo de migración **no** contiene sentencias `insert`, `update` ni `delete` sobre `auth.users` / `auth.identities` / `public.users`: el seed vive en `supabase/seed/0001_staff_users.sql`.
+- [x] El archivo de migración **no** contiene sentencias `insert`, `update` ni `delete` sobre `auth.users` / `auth.identities` / `public.users`: el seed vive en `supabase/seed/0001_staff_users.sql`.
 
-- [ ] `list_migrations` no contiene ninguna entrada con nombre `seed*`: el seed no entró al historial de migraciones.
+- [x] `list_migrations` no contiene ninguna entrada con nombre `seed*`: el seed no entró al historial de migraciones.
 
 Seed:
 
-- [ ] `auth.users` tiene exactamente 3 filas: `admin@solas.test`, `staff@solas.test`, `parent@estrellas.test`, todas con `email_confirmed_at` no nulo.
+- [x] `auth.users` tiene exactamente 3 filas: `admin@solas.test`, `staff@solas.test`, `parent@estrellas.test`, todas con `email_confirmed_at` no nulo.
 
-- [ ] `auth.identities` tiene 3 filas, una por usuario, con `provider = 'email'` y `provider_id = auth.users.id::text`.
+- [x] `auth.identities` tiene 3 filas, una por usuario, con `provider = 'email'` y `provider_id = auth.users.id::text`.
 
-- [ ] `public.users` tiene exactamente 3 filas, con `role` = `admin` / `staff` / `parent` respectivamente, todas con `status = 'active'`, y `daycare_id` de `admin@solas.test` y `staff@solas.test` apuntando a `'Guardería Sala Soles'` y el de `parent@estrellas.test` a `'Guardería Estrellas'`.
+- [x] `public.users` tiene exactamente 3 filas, con `role` = `admin` / `staff` / `parent` respectivamente, todas con `status = 'active'`, y `daycare_id` de `admin@solas.test` y `staff@solas.test` apuntando a `'Guardería Sala Soles'` y el de `parent@estrellas.test` a `'Guardería Estrellas'`.
 
-- [ ] Re-ejecutar el seed no crea filas nuevas en `auth.users`, `auth.identities` ni `public.users`, ni cambia `updated_at` de los perfiles existentes.
+- [x] Re-ejecutar el seed no crea filas nuevas en `auth.users`, `auth.identities` ni `public.users`, ni cambia `updated_at` de los perfiles existentes.
 
 Comportamiento del trigger:
 
-- [ ] Un `insert` en `auth.users` con `raw_app_meta_data = {"daycare_id": "<uuid de una guardería existente>"}` crea en `public.users` una fila con `role = 'parent'` y `status = 'pending'` (probe en `begin`/`rollback`).
+- [x] Un `insert` en `auth.users` con `raw_app_meta_data = {"daycare_id": "<uuid de una guardería existente>"}` crea en `public.users` una fila con `role = 'parent'` y `status = 'pending'` (probe en `begin`/`rollback`).
 
-- [ ] Un `insert` en `auth.users` **sin** `daycare_id` en `raw_app_meta_data` levanta excepción y no deja fila en `public.users`.
+- [x] Un `insert` en `auth.users` **sin** `daycare_id` en `raw_app_meta_data` levanta excepción y no deja fila en `public.users`.
 
-- [ ] Un `insert` en `auth.users` con `daycare_id` que no es un uuid válido, o que no corresponde a ninguna fila de `daycares`, levanta excepción y no deja fila en `public.users`.
+- [x] Un `insert` en `auth.users` con `daycare_id` que no es un uuid válido, o que no corresponde a ninguna fila de `daycares`, levanta excepción y no deja fila en `public.users`.
 
-- [ ] Un `insert` en `auth.users` con `raw_user_meta_data = {"role":"admin","daycare_id":"<uuid de otra guardería>"}` y `raw_app_meta_data` de la guardería correcta crea un perfil con `role = 'parent'` y `daycare_id` **tomado del** `app_metadata`, no del `user_metadata`.
+- [x] Un `insert` en `auth.users` con `raw_user_meta_data = {"role":"admin","daycare_id":"<uuid de otra guardería>"}` y `raw_app_meta_data` de la guardería correcta crea un perfil con `role = 'parent'` y `daycare_id` **tomado del** `app_metadata`, no del `user_metadata`.
 
-- [ ] Un `insert` en `auth.users` con `is_anonymous = true` no crea fila en `public.users`.
+- [x] Un `insert` en `auth.users` con `is_anonymous = true` no crea fila en `public.users`.
 
-- [ ] Un `insert` en `auth.users` sin `full_name` en `raw_user_meta_data` crea el perfil con el local-part del email; si tampoco hay email, levanta excepción.
+- [x] Un `insert` en `auth.users` sin `full_name` en `raw_user_meta_data` crea el perfil con el local-part del email; si tampoco hay email, levanta excepción.
 
-- [ ] Un `update` sobre cualquier columna de `public.users` deja `updated_at` mayor que el valor previo.
+- [x] Un `update` sobre cualquier columna de `public.users` deja `updated_at` mayor que el valor previo.
 
 RLS:
 
-- [ ] Como `authenticated` con el `sub` del admin de Sala Soles: `select count(*) from public.daycares` devuelve 1, `select count(*) from public.users` devuelve 1, y `update public.daycares set name = name where true` afecta 1 fila.
+- [x] Como `authenticated` con el `sub` del admin de Sala Soles: `select count(*) from public.daycares` devuelve 1, `select count(*) from public.users` devuelve 1, y `update public.daycares set name = name where true` afecta 1 fila.
 
-- [ ] Como `authenticated` con el `sub` del staff de Sala Soles: `select count(*) from public.daycares` devuelve 1 y `update public.daycares set name = name where true` afecta 0 filas **sin error**.
+- [x] Como `authenticated` con el `sub` del staff de Sala Soles: `select count(*) from public.daycares` devuelve 1 y `update public.daycares set name = name where true` afecta 0 filas **sin error**.
 
-- [ ] Como `authenticated` con el `sub` del parent de Estrellas: `select name from public.daycares` devuelve exactamente `('Guardería Estrellas')` — su propia guardería y ninguna otra; `select count(*) from public.daycares` devuelve 1, y 0 filas son `'Guardería Sala Soles'`.
+- [x] Como `authenticated` con el `sub` del parent de Estrellas: `select name from public.daycares` devuelve exactamente `('Guardería Estrellas')` — su propia guardería y ninguna otra; `select count(*) from public.daycares` devuelve 1, y 0 filas son `'Guardería Sala Soles'`.
 
-- [ ] Como `authenticated` con el `sub` del staff de Sala Soles: `select count(*) from public.users` devuelve 1 (solo su propia fila), no las 3.
+- [x] Como `authenticated` con el `sub` del staff de Sala Soles: `select count(*) from public.users` devuelve 1 (solo su propia fila), no las 3.
 
-- [ ] Con el admin autenticado, `update public.users set role = 'admin' where id = (select auth.uid())` **no** deja `role = 'admin'` en la fila: falla con `42501` por el privilegio de columna revocado, o devuelve 0 filas.
+- [x] Con el admin autenticado, `update public.users set role = 'admin' where id = (select auth.uid())` **no** deja `role = 'admin'` en la fila: falla con `42501` por el privilegio de columna revocado, o devuelve 0 filas.
 
-- [ ] `authenticated` sí puede actualizar `full_name`, `avatar_url`, `notify_on_post` y `daily_summary_enabled` de su propia fila (probe en `begin`/`rollback` que además confirma que `updated_at` cambió).
+- [x] `authenticated` sí puede actualizar `full_name`, `avatar_url`, `notify_on_post` y `daily_summary_enabled` de su propia fila (probe en `begin`/`rollback` que además confirma que `updated_at` cambió).
 
-- [ ] Como `anon`: `select count(*) from public.daycares` y `select count(*) from public.users` devuelven 0 ambas, aun con `has_table_privilege('anon', …, 'SELECT')` en `true`.
+- [x] Como `anon`: `select count(*) from public.daycares` y `select count(*) from public.users` devuelven 0 ambas, aun con `has_table_privilege('anon', …, 'SELECT')` en `true`.
 
-- [ ] `has_table_privilege('authenticated', 'public.users', 'UPDATE')` es `false`, mientras `has_column_privilege('authenticated', 'public.users', 'full_name', 'UPDATE')` es `true` y `has_column_privilege('authenticated', 'public.users', 'role', 'UPDATE')` es `false`.
+- [x] `has_table_privilege('authenticated', 'public.users', 'UPDATE')` es `false`, mientras `has_column_privilege('authenticated', 'public.users', 'full_name', 'UPDATE')` es `true` y `has_column_privilege('authenticated', 'public.users', 'role', 'UPDATE')` es `false`.
 
-- [ ] No existe ninguna política de `insert` ni de `delete` en `users` ni en `daycares`: un `insert` directo en `public.users` como `authenticated` afecta 0 filas.
+- [x] No existe ninguna política de `insert` ni de `delete` en `users` ni en `daycares`: un `insert` directo en `public.users` como `authenticated` afecta 0 filas.
 
 Advisors:
 
-- [ ] `get_advisors('security')` no reporta ningún lint de nivel **WARN o superior** que nombre `users`, `handle_new_user`, `set_updated_at`, `users_select_own`, `users_update_self` ni las políticas de `daycares`. Los 2 WARN de `public.rls_auto_enable()` son baseline preexistente y quedan fuera.
+- [x] `get_advisors('security')` no reporta ningún lint de nivel **WARN o superior** que nombre `users`, `handle_new_user`, `set_updated_at`, `users_select_own`, `users_update_self` ni las políticas de `daycares`. Los 2 WARN de `public.rls_auto_enable()` son baseline preexistente y quedan fuera.
 
-- [ ] El lint **INFO** `rls_enabled_no_policy` que SPEC 08 aceites sobre `daycares` ya no aparece (la tabla tiene políticas) y no aparece uno nuevo sobre `users`.
+- [x] El lint **INFO** `rls_enabled_no_policy` que SPEC 08 aceites sobre `daycares` ya no aparece (la tabla tiene políticas) y no aparece uno nuevo sobre `users`.
 
-- [ ] `get_advisors('performance')` no reporta ningún lint por encima de **INFO**. El único INFO admisible es `unused_index` sobre `users_daycare_id_idx`: es un índice recién creado, así que todavía no tiene estadísticas de uso, y existe por la regla de FK sobre `daycare_id`, no para acelerar una consulta concreta (el predicado de `daycares` resuelve `id` por la PK). Cualquier otro lint, o un `unused_index` sobre otro índice, no cumple el criterio.
+- [x] `get_advisors('performance')` no reporta ningún lint por encima de **INFO**. El único INFO admisible es `unused_index` sobre `users_daycare_id_idx`: es un índice recién creado, así que todavía no tiene estadísticas de uso, y existe por la regla de FK sobre `daycare_id`, no para acelerar una consulta concreta (el predicado de `daycares` resuelve `id` por la PK). Cualquier otro lint, o un `unused_index` sobre otro índice, no cumple el criterio.
 
 Documentación:
 
-- [ ] `specs/08-tabla-daycares.md` tiene las dos amendments del Plan paso 12 y ya no afirma sin salvedad que `daycares` tiene exactamente 1 fila ni que el índice es `(daycare_id, id)`.
+- [x] `specs/08-tabla-daycares.md` tiene las dos amendments del Plan paso 12 y ya no afirma sin salvedad que `daycares` tiene exactamente 1 fila ni que el índice es `(daycare_id, id)`.
 
-- [ ] `AGENTS.md` documenta el patrón de seeds (`supabase/seed/` con `execute_sql`, no migración) y ya no lista `users` ni `supabase/seed/` como pendientes; el cliente de Supabase y la CLI siguen listados como pendientes.
+- [x] `AGENTS.md` documenta el patrón de seeds (`supabase/seed/` con `execute_sql`, no migración) y ya no lista `users` ni `supabase/seed/` como pendientes; el cliente de Supabase y la CLI siguen listados como pendientes.
 
 Repo:
 
-- [ ] `npm run lint` y `npm run build` terminan sin errores.
+- [x] `npm run lint` y `npm run build` terminan sin errores.
 
-- [ ] `git status` no muestra `.env` ni ningún archivo de credenciales de Supabase; el diff toca solo `supabase/`, `specs/08-tabla-daycares.md` y `AGENTS.md`.
+- [x] `git status` no muestra `.env` ni ningún archivo de credenciales de Supabase; el diff toca solo `supabase/`, `specs/08-tabla-daycares.md` y `AGENTS.md`.
 
 ## Decisiones
 
