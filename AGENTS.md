@@ -9,6 +9,7 @@ Keep the `nextjs-agent-rules` markers intact so `next dev` upserts this block in
 ## Stack
 
 - Next.js 16.3.5 (App Router, Turbopack default for `dev` and `build`), React 19.2.8, TypeScript strict, Tailwind v4, ESLint 9 flat config.
+- Supabase: `@supabase/ssr` `^0.12.7` (envoltura SSR con cookies) y `@supabase/supabase-js` `^2.117.2` (SDK base). Uso y trampas en la sección Supabase.
 - `README.md` is untouched create-next-app boilerplate — ignore it.
 - `CLAUDE.md` only imports this file (`@AGENTS.md`); keep guidance here.
 
@@ -21,6 +22,7 @@ Keep the `nextjs-agent-rules` markers intact so `next dev` upserts this block in
 ## Layout
 
 - App Router lives at the repo root in `app/` (no `src/`). Import alias `@/*` maps to the repo root.
+- `proxy.ts` at the repo root is the Next.js entry (v16 renames `middleware.ts`); it only delegates to `updateSession()` in `data/supabase/proxy.ts` — la lógica de sesión no va en `app/` ni en `components/`.
 - Tailwind v4 has no `tailwind.config.*`; theme tokens live in `app/globals.css` (`@import "tailwindcss"` + `@theme inline`).
 - `references/pantallas/*.dc.html` are standalone design mockups for the daycare product and `references/screenshots/` holds screenshots. Build UI to match them (warm palette, Fredoka/Nunito fonts). They are reference-only, not bundled by the app.
 
@@ -52,14 +54,31 @@ Supabase es el backend objetivo (capa de Infraestructura: reemplaza los mocks de
 - **Skills obligatorias:** carga `supabase` antes de cualquier tarea de Supabase (auth, RLS, migraciones, Edge Functions, Realtime, Storage, logs) y `supabase-postgres-best-practices` antes de escribir o alterar SQL, índices, RLS o funciones. La skill `supabase` manda leer `https://supabase.com/changelog.md` para breaking changes antes de implementar — Supabase cambia rápido, no confíes en memoria de entrenamiento.
 - **Trampas de seguridad (resumen de la skill):** RLS habilitado en toda tabla de schema expuesto (`public`); `service_role`/secret key nunca en cliente (`NEXT_PUBLIC_*` va al navegador); `user_metadata` es editable por el usuario → autorizaciones en `app_metadata`; vistas con `security_invoker = true`; UPDATE necesita política SELECT o devuelve 0 filas en silencio; usa `TO authenticated` + predicado de ownership, nunca solo `TO authenticated`.
 - **Verifica:** tras cualquier migración, ejecuta un query de prueba (`list_tables`/`execute_sql`) y `get_advisors('security')` + `get_advisors('performance')`. El lint INFO `rls_enabled_no_policy` es esperado en tablas con RLS y cero políticas: no es una fuga, se demuestra por probe.
-- **Pendiente de montar:** falta el cliente (`@supabase/supabase-js` + `@supabase/ssr` para SSR en App Router) y la CLI de Supabase (`npx supabase` — sin ella no hay `db push`, stack local ni Edge Functions). Credenciales: `SUPABASE_DB_PASSWORD` en `.env` (ver `.env.example`) — nunca commitear `.env`.
+- **Pendiente de montar:** la CLI de Supabase (`npx supabase` — sin ella no hay `db push`, stack local ni Edge Functions). Credenciales: `SUPABASE_DB_PASSWORD` en `.env` (ver `.env.example`) — nunca commitear `.env`.
+
+### Cliente Supabase desde la app (`@supabase/ssr`)
+
+Cliente ya montado en `data/supabase/` (capa de Infraestructura, ver sección Arquitectura). Los mocks de `data/mock/` se reemplazan leyendo de la BD con este cliente; las specs de features que toquen datos describen su parte de BD en `specs/database/`.
+
+- **Paquetes:** `@supabase/ssr` (envoltura SSR, expone `createServerClient`/`createBrowserClient`) y `@supabase/supabase-js` (SDK base, ya instalado; **no** se instancia directo desde `app/` ni `components/`).
+- **Archivos:** `config.ts` (lee y valida `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`), `server.ts` (`async createClient()` — Server Components, Server Actions, Route Handlers), `client.ts` (`createClient()` — Client Components), `proxy.ts` (`updateSession(request)`). Raíz `proxy.ts` es la entrada de Next.js y solo delega a `updateSession`.
+- **Fuentes de verdad:** la [guía de SSR de Supabase](https://supabase.com/docs/guides/auth/server-side) (el archivo de ejemplo canónico que la guía linkea es [`examples/auth/nextjs`](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)) y la [guía de Auth en Next.js](https://supabase.com/docs/guides/auth/server-side/nextjs). Cuando copies código de ahí, mantenlo: el ejemplo usa `proxy.ts` + `export async function proxy` (v16 renombró `middleware.ts`), y ese archivo linkeado es el que manda. Appendé esta sección en vez de improvisar el patrón.
+- **Credenciales:** solo la publishable key, vía `NEXT_PUBLIC_*` (va al navegador). Nunca `service_role`/secret key en el cliente. Para DDL, `apply_migration` por MCP — el cliente solo lee/escribe filas, no aplica schema.
+- **Trampas del SSR:**
+  - Los Server Components no escriben cookies; el `setAll` de `server.ts` va en `try/catch` y su error se ignora a propósito. Quien refresca la sesión es `proxy.ts`.
+  - `setAll(cookiesToSet, headers)` recibe un **segundo argumento** con `Cache-Control`/`Expires`/`Pragma` que deben aplicarse a la respuesta: una respuesta que escribe cookies de sesión no puede cachearse (un CDN podría servirlas a otro usuario).
+  - `updateSession` debe devolver el `supabaseResponse` que arms en `setAll`, nunca una respuesta nueva: si creás otra, copiale cookies **y** headers de cache de ese objeto. Devolver una anterior hace perder las cookies refrescadas y desloguea al usuario en el siguiente request.
+  - No corras código entre `createServerClient()` y `await supabase.auth.getClaims()`; sin ese `getClaims()` la sesión se refresca "al azar" y los usuarios se desloguean intermitentemente.
+  - **Nunca confíes en `getSession()`** dentro del proxy o de código de servidor: lee la cookie sin revalidarla y cualquiera puede firmarla. Usá `getClaims()`, que verifica la firma en cada llamada.
+  - El redirect a `/login` de `updateSession` está **omitido a propósito**: hoy el auth es solo UI (SPEC 03/04, "sin autenticación ni base de datos") y nadie puede crear sesión, así que activarlo dejaría toda la app tras `/login`. Reincorporalo cuando el auth aterrice.
+  - Las políticas RLS son la única puerta (ver sección Supabase): con `anon` el `select` devuelve 0 filas sin error — eso no es un bug del cliente.
 
 ## Next.js 16 gotchas
 
 Read `node_modules/next/dist/docs/` before writing code; these differ from older Next.js:
 
 - Request APIs are async: `await params`, `await searchParams`, `await cookies()`, `await headers()`, `await draftMode()`. Prefer the generated types `PageProps<'/route'>`, `LayoutProps<'/'>`, `RouteContext` (regenerate with `npx next typegen`).
-- `middleware.ts` is now `proxy.ts` exporting `proxy()`; nodejs runtime only.
+- `middleware.ts` is now `proxy.ts` exporting `proxy()`; nodejs runtime only. Supabase usa exactamente ese nombre — ver sección Supabase.
 - `revalidateTag(tag, profile)` now requires a second `cacheLife` argument (e.g. `'max'`). `updateTag`/`refresh` (server actions only) come from `next/cache`.
 - Every parallel-route slot needs an explicit `default.js` or the build fails.
 - Prefer `cacheComponents: true` (replaces `experimental.ppr` / `dynamicIO` / `useCache`).
