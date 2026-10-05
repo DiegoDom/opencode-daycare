@@ -51,3 +51,84 @@ comment on table public.users is 'Perfil de aplicación vinculado a Supabase Aut
 -- sobre `users`. El predicado de ownership de `daycares` resuelve `id` por la
 -- PK, así que no hace falta un índice compuesto (ver Decisiones de SPEC 09).
 create index if not exists users_daycare_id_idx on public.users (daycare_id);
+
+-- 3. Funciones y triggers ---------------------------------------------
+create or replace function public.set_updated_at() returns trigger
+  language plpgsql
+  security invoker
+  set search_path = ''
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+-- `SECURITY DEFINER` no es estilo: GoTrue inserta en `auth.users` con el rol
+-- `supabase_auth_admin`, que tiene `rolbypassrls = false` y no está en los
+-- `default privileges` de `public`. Sin definer, el trigger no puede escribir
+-- en `public.users`. El dueño de la función es `postgres`, que sí bypasea RLS.
+create or replace function public.handle_new_user() returns trigger
+  language plpgsql
+  security definer
+  set search_path = ''
+as $$
+declare
+  v_raw         text;
+  v_daycare_id  uuid;
+  v_name        text;
+begin
+  -- GoTrue emite un `auth.users` por cada signup, incluidos los anónimos.
+  -- Un perfil anónimo no es un usuario del producto.
+  if new.is_anonymous then
+    return new;
+  end if;
+
+  -- `daycare_id` se lee de `raw_app_meta_data`, que escribe el servidor.
+  -- `raw_user_meta_data` lo puede editar el usuario: leer el tenancy de ahí
+  -- permitiría que cualquiera se autoasigne a otra guardería.
+  v_raw := nullif(btrim(coalesce(new.raw_app_meta_data ->> 'daycare_id', '')), '');
+  if v_raw is null then
+    raise exception 'handle_new_user: falta `daycare_id` en raw_app_meta_data (auth.users.id=%)', new.id;
+  end if;
+
+  begin
+    v_daycare_id := v_raw::uuid;
+  exception when invalid_text_representation then
+    raise exception 'handle_new_user: `daycare_id` no es un uuid válido: %', v_raw;
+  end;
+
+  if not exists (select 1 from public.daycares d where d.id = v_daycare_id) then
+    raise exception 'handle_new_user: `daycare_id` % no corresponde a ninguna guardería', v_daycare_id;
+  end if;
+
+  -- `full_name` no es dato de autorización: sí se lee de `raw_user_meta_data`.
+  v_name := nullif(btrim(coalesce(new.raw_user_meta_data ->> 'full_name', '')), '');
+  if v_name is null then
+    v_name := nullif(split_part(coalesce(new.email, ''), '@', 1), '');
+  end if;
+  if v_name is null then
+    raise exception 'handle_new_user: no hay `full_name` en raw_user_meta_data ni email del que derivarlo (auth.users.id=%)', new.id;
+  end if;
+
+  -- El rol y el estado NO se leen de ningún metadata: nacen `parent`/`pending`.
+  insert into public.users (id, daycare_id, role, status, full_name)
+  values (new.id, v_daycare_id, 'parent', 'pending', v_name);
+
+  return new;
+end;
+$$;
+
+-- Postgres otorga EXECUTE a PUBLIC en toda función nueva, y `anon` y
+-- `authenticated` heredan de PUBLIC: sin estos revoke, `handle_new_user` es un
+-- endpoint público que corre con privilegios de `postgres`.
+revoke execute on function public.handle_new_user() from public, anon, authenticated, service_role;
+revoke execute on function public.set_updated_at()   from public, anon, authenticated, service_role;
+
+create trigger users_set_updated_at
+  before update on public.users
+  for each row execute function public.set_updated_at();
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
