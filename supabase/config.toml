@@ -1,0 +1,11 @@
+# Configuración de Supabase del proyecto.
+#
+# La CLI de Supabase NO está instalada (decisión del SPEC 08), así que este archivo no
+# salió de `supabase init`: es declarativo y mínimo. Cuando se monte la CLI,
+# `supabase init` / `supabase config push` completarán las secciones restantes.
+#
+# Las migraciones se aplican con el MCP de Supabase (`apply_migration`), que registra cada
+# cambio en el historial `supabase_migrations` de la base. El SQL vive commiteado en
+# `supabase/migrations/`.
+
+project_id = "zvtgjvsqehhvutyrbsil"
