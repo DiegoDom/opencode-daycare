@@ -243,7 +243,7 @@ El punto 3 es el que más fácil se rompe: `daycares` no filtra nada si `users` 
    select id, name, created_at from public.daycares;
    ```
 
-6. **Advisors.** Ejecutar `get_advisors('security')` y `get_advisors('performance')`. Ningún lint puede apuntar a `daycares`. Los 2 WARN de `public.rls_auto_enable()` son el baseline: si aparecen nuevos, arreglar antes de cerrar. Verify: diff mental contra el baseline de la tabla de arriba.
+6. **Advisors.** Ejecutar `get_advisors('security')` y `get_advisors('performance')`. Ningún lint de WARN o superior puede apuntar a `daycares`. Los 2 WARN de `public.rls_auto_enable()` son el baseline: si aparecen nuevos, arreglar antes de cerrar. El lint INFO `rls_enabled_no_policy` es **esperado**: la tabla tiene RLS y cero políticas por decisión de diseño, así que el advisor informa el deny-all que se quiere. No se "arregla" — limpiarlo exigiría aplicar una política, que este spec excluye explícitamente. Verify: diff mental contra el baseline de la tabla de arriba.
 
 7. **Documentar el patrón.** En `AGENTS.md`, sección Supabase: reemplazar la línea de pendientes que menciona `supabase/migrations/` por la descripción del patrón (archivo commiteado + `apply_migration` + reconciliación de versión + verificación con advisors), y dejar en la lista de pendientes solo el cliente de Supabase y la CLI. Agregar la advertencia de que `public` otorga `arwdDxtm` a `anon`/`authenticated` por default, así que RLS habilitado con cero políticas es lo que mantiene la tabla cerrada. Verify: `AGENTS.md` ya no dice que el directorio de migraciones está pendiente.
 
@@ -279,7 +279,7 @@ El punto 3 es el que más fácil se rompe: `daycares` no filtra nada si `users` 
 
 - [ ] El archivo de migración no contiene ninguna sentencia `grant` ni `revoke`.
 
-- [ ] `get_advisors('security')` no reporta ningún lint que nombre `daycares` (los 2 WARN de `public.rls_auto_enable` son baseline preexistente y quedan fuera).
+- [ ] `get_advisors('security')` no reporta ningún lint de nivel **WARN o superior** que nombre `daycares`. Los 2 WARN de `public.rls_auto_enable` son baseline preexistente y quedan fuera. El lint **INFO** `rls_enabled_no_policy` **sí aparece** y queda waived por la decisión de RLS con cero políticas: describe el deny-all deliberado de la tabla, no una fuga — la postura correcta se verifica por probe (`relrowsecurity = true`, 0 políticas, `anon` ve 0 filas), no por ausencia de lints.
 
 - [ ] `get_advisors('performance')` no reporta ningún lint que nombre `daycares`.
 
@@ -312,6 +312,7 @@ El punto 3 es el que más fácil se rompe: `daycares` no filtra nada si `users` 
 - **No:** `unique (name)`. El diccionario no lo pide, y el nombre de una guardería no tiene por qué ser una clave de negocio. El `check` de no-blanco evita el caso degenerado sin agregar un índice único que restringe sin motivo.
 - **Sí:** `create table if not exists`. Migraciones versionadas se aplican una vez, pero el guard de idempotencia cuesta una línea y hace seguro re-aplicar tras un fallo parcial.
 - **No:** tocar `public.rls_auto_enable()`. Los 2 WARN son preexistentes y de plataforma, no de esta migración. El criterio de aceptación compara contra el baseline en vez de exigir cero lints.
+- **Sí:** aceptar el lint INFO `rls_enabled_no_policy` que la propia tabla dispara. El criterio de aceptación se amendó para exigir solo lints de WARN o superior: el criterio original ("ningún lint que nombre `daycares`") era insatisfacible, porque el estado que este spec decide —RLS habilitado con cero políticas— es exactamente el que el advisor reporta. La tabla cerrada se demuestra por probe, no por silencio de lints.
 - **No:** corregir la divergencia menor de `default privileges` en `public` (la entrada de `postgres` y la de `supabase_admin` son distintas). Fuera de alcance; se documenta en Riesgos.
 
 ## Riesgos
