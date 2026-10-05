@@ -168,7 +168,7 @@ Puntos que no son negociables en el spec que lo aplique:
 | `with check` en el `update` | `USING` filtra la fila que ya existía; `WITH CHECK` valida la fila **resultante**. Aquí parece redundante porque `daycares.id` es la PK y no debería cambiar, pero `id` es una columna cualquiera para Postgres: sin el `with check` un admin podría reescribir el `id` y mover la guardería fuera de su alcance. Se mantiene porque el costo es un `exists` más. |
 | El `update` necesita la política `select` | En RLS de Postgres un `UPDATE` primero hace `SELECT` de la fila. Sin política `SELECT`, un `update` devuelve 0 filas **sin error**. Las dos van en la misma migración. |
 | Sin política `insert` ni `delete` | Alta y borrado de guarderías quedan solo por SQL con `service_role`. Ausencia de política = denegado, aunque el ACL por default dé `arwdDxtm`. |
-| Índice en `users (daycare_id, id)` | El predicado se evalúa por fila de `daycares`; sin índice cada fila es un seq scan sobre `users`. Se crea en el spec de `users`. |
+| Índice en `users` con `daycare_id` como columna líder | El predicado se evalúa por fila de `daycares`; sin índice cada fila es un seq scan sobre `users`. `daycare_id` alcanza: el `id` se resuelve por la PK. Se crea en el spec de `users` como `users_daycare_id_idx`. *(Amend de SPEC 09.)* |
 | Nombre de política `<tabla>_<acción>_<sujeto>` | `daycares_select_own`, `daycares_update_admin`. Legible en `pg_policies` sin tener que abrir el DDL. |
 
 ### Cómo esto se verifica cuando se aplique
@@ -193,7 +193,7 @@ Casos que tienen que verificarse, no solo compilar: admin del daycare renombra y
 1. `users.daycare_id` es `not null`. Si admitiera `null`, un perfil sin guardería tendría `u.daycare_id = null` y nunca coincidiría con `daycares.id` — inofensivo en la práctica, pero el predicado quedaría expresando una regla que el schema no respalda.
 2. `users.id` es PK y FK a `auth.users(id)`, con el **mismo** UUID. El predicado compara contra `auth.uid()`, que es el `sub` del JWT.
 3. `users` tiene RLS habilitado **con cero políticas** hasta que su propio spec aplique las suyas. Si `users` quedara con alguna política permisiva, el `exists` del predicado de `daycares` se ejecutaría con los permisos de quien llama y podría devolver filas que el usuario no debería ver.
-4. Existe índice en `users (daycare_id, id)`.
+4. Existe un índice en `users` con `daycare_id` como columna líder (`users_daycare_id_idx`). No hace falta `(daycare_id, id)`: el `id` es la PK, así que Postgres resuelve `id = X` por el índice de la PK —una igualdad única, con el índice garantizado por la propia tabla— y filtra `daycare_id` y `status` sobre esa fila. El índice de `daycare_id` se justifica por la regla de FK: sin él, borrar una guardería hace un seq scan sobre `users`. *(Amend de SPEC 09.)*
 
 El punto 3 es el que más fácil se rompe: `daycares` no filtra nada si `users` filtra poco.
 
@@ -273,7 +273,7 @@ El punto 3 es el que más fácil se rompe: `daycares` no filtra nada si `users` 
 
 - [x] `has_table_privilege('anon', 'public.daycares', 'SELECT')` es `true` (lo otorgan los `default privileges` del proyecto) y, aun con ese privilegio, un `select count(*)` ejecutado como `anon` devuelve 0 filas: el RLS sin políticas cierra la tabla.
 
-- [x] `public.daycares` tiene exactamente 1 fila, con `name = 'Guardería Sala Soles'` y un `id` `uuid` no nulo (ningún id hardcodeado en el SQL).
+- [x] `public.daycares` tiene exactamente 1 fila **al terminar la migración** `create_daycares`, con `name = 'Guardería Sala Soles'` y un `id` `uuid` no nulo (ningún id hardcodeado en el SQL). *(Amend de SPEC 09: el seed de ese spec agrega una segunda fila, `'Guardería Estrellas'`, con fines de prueba de aislamiento entre guarderías.)*
 
 - [x] Re-ejecutar el mismo SQL no crea una segunda fila con el mismo nombre.
 
@@ -302,7 +302,7 @@ El punto 3 es el que más fácil se rompe: `daycares` no filtra nada si `users` 
 - **No:** código de la app ni `.env`. Nada consume `daycares` todavía; el cliente y las vars `NEXT_PUBLIC_*` llegan con el spec que monte el cliente. Un `.env.example` con vars sin uso sería ruido.
 - **No:** `updated_at` en `daycares`. El diccionario lista solo `id`, `name`, `created_at` para esta tabla. Agregarlo "por consistencia" crea divergencia con el documento que es la fuente de verdad.
 - **Sí:** RLS habilitado con **cero políticas**. Es la posición segura y no tiene costo: no hay consumidor. La primera política necesita el predicado de ownership sobre `users`, que no existe.
-- **Sí:** documentar el diseño de RLS de `daycares` en este spec sin aplicarlo. La primera política de una tabla es la decisión con más consecuencias del esquema y merece estar escrita y razonada antes de que exista el predicado que la habilita. Documentarla acá también deja escrito el contrato que el spec de `users` tiene que cumplir (`daycare_id not null`, `id` = `auth.users.id`, `users` con RLS y cero políticas, índice en `(daycare_id, id)`).
+- **Sí:** documentar el diseño de RLS de `daycares` en este spec sin aplicarlo. La primera política de una tabla es la decisión con más consecuencias del esquema y merece estar escrita y razonada antes de que exista el predicado que la habilita. Documentarla acá también deja escrito el contrato que el spec de `users` tiene que cumplir (`daycare_id not null`, `id` = `auth.users.id`, `users` con RLS y cero políticas, índice con `daycare_id` como columna líder).
 - **No:** aplicar la primera política en este spec. Una policy mal escrita expone filas, y no se puede probar con tres roles distintos (admin, parent del mismo daycare, parent de otro) hasta que exista el perfil que el predicado consulta. `daycares` con RLS y cero políticas ya está en deny-all, que es deny-all de verdad: no hay nada que perder esperando.
 - **No:** función `security definer` en un schema privado para evaluar el ownership. Con una guardería por defecto y `users` en cardinalidad chica, un `exists` indexado es suficiente y evita meter el primer `security definer` del proyecto — que la skill de Supabase marca como superficie pública por defecto mientras la función viva en `public`. Si el número de guarderías crece, la función se introduce con el spec que lo justifique, con `revoke execute` a `anon`/`authenticated` y `auth.uid()` dentro del cuerpo.
 - **No:** política de `insert` ni de `delete` para `daycares`. Alta y borrado de guarderías son operaciones administrativas que no tienen consumidor desde el cliente; dejarlas sin política las mantiene en `service_role` aunque el ACL por default conceda `arwdDxtm`.
