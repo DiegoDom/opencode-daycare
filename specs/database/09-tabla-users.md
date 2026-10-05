@@ -225,7 +225,7 @@ Los tres usuarios mapean las tres ramas del predicado de ownership de `daycares`
 | --- | --- |
 | `admin@solas.test` | `exists` con `role = 'admin'` → ve **y** escribe `daycares` |
 | `staff@solas.test` | `exists` sin `role = 'admin'` → ve `daycares`, no escribe. Cubre el caso de SPEC 08 ("parent del mismo daycare"): el predicado filtra por `daycare_id`, `id` y `status`, no por `role` |
-| `parent@estrellas.test` | `exists` con otro `daycare_id` → 0 filas visibles |
+| `parent@estrellas.test` | `exists` con otro `daycare_id` → ve **1 fila, la suya** (`'Guardería Estrellas'`) y 0 de `'Guardería Sala Soles'`. Aísla por `daycare_id`, no por identidad de guardería |
 
 Convenciones:
 
@@ -291,11 +291,14 @@ El predicado de `daycares` contiene un `exists` sobre `public.users`, y ese subq
     begin;
       set local role authenticated;
       set local request.jwt.claims = '{"sub":"<uuid-parent-estrellas>","role":"authenticated"}';
-      select count(*) from public.daycares;                                   -- 0
+      select name from public.daycares;                                        -- 'Guardería Estrellas'
+      select count(*) from public.daycares;                                   -- 1
+      select count(*) from public.daycares
+        where name = 'Guardería Sala Soles';                                   -- 0
     rollback;
     ```
 
-    El `update` que devuelve 0 filas **sin error** es el resultado correcto del caso `staff`: es el modo de falla silencioso de RLS cuando el `USING` no matchea. Verify: los tres bloques devuelven 1/1/1, 1/0 y 0, en ese orden.
+    El `update` que devuelve 0 filas **sin error** es el resultado correcto del caso `staff`: es el modo de falla silencioso de RLS cuando el `USING` no matchea. El caso `parent@estrellas.test` devuelve **1 fila, la de su propia guardería** — el aislamiento se prueba por *qué* fila ve, no por un conteo de 0: con `status = 'active'` (que es lo que deja el seed del paso 6) el `exists` matchea y el padre ve su guardería, no la ajena. Un 0 sería el resultado de un perfil `pending`, que es un estado transitorio del alta y no una regla de diseño: `daycare_id` es `not null`, así que "perfil sin guardería" no existe. Por eso el probe trae el `name`: sin él, un 1 y un 0 por guardia ajena son indistinguibles de un fallo del predicado. Verify: los tres bloques devuelven 1/1/1, 1/0 y Estrellas/1/0, en ese orden.
 
  9. **Probe de escalada y de** `anon`**.** Con el `admin` autenticado, `update public.users set role = 'admin' where id = (select auth.uid())` debe fallar con `42501` (privilegio de columna revocado) o devolver 0 filas — lo que **no** puede hacer es dejar `role = 'admin'` en la fila. Con `set local role anon`, `select count(*) from public.daycares` y de `public.users` devuelven 0 ambas, aun con `arwdDxtm` en el ACL. Todo en `begin` / `rollback`. Verify: `role` del admin sigue siendo `admin` después del probe, y los dos conteos `anon` son 0.
 
@@ -374,7 +377,7 @@ RLS:
 
 - [ ] Como `authenticated` con el `sub` del staff de Sala Soles: `select count(*) from public.daycares` devuelve 1 y `update public.daycares set name = name where true` afecta 0 filas **sin error**.
 
-- [ ] Como `authenticated` con el `sub` del parent de Estrellas: `select count(*) from public.daycares` devuelve 0 filas.
+- [ ] Como `authenticated` con el `sub` del parent de Estrellas: `select name from public.daycares` devuelve exactamente `('Guardería Estrellas')` — su propia guardería y ninguna otra; `select count(*) from public.daycares` devuelve 1, y 0 filas son `'Guardería Sala Soles'`.
 
 - [ ] Como `authenticated` con el `sub` del staff de Sala Soles: `select count(*) from public.users` devuelve 1 (solo su propia fila), no las 3.
 
