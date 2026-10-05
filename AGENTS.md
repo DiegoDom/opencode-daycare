@@ -34,9 +34,15 @@ Clean Architecture pragmática a 4 capas — convención en `specs/00-arquitectu
 - **Presentación (frameworks & drivers):** `app/` (Server Components) + `components/` (presentacional).
 - Regla de dependencia: siempre hacia adentro. `app/` **y** `components/` **jamás importan desde** `data/`**.**
 
+## Specs
+
+- Las specs van en `specs/`, numeradas `NN-slug.md` (`00-arquitectura.md` fija la convención Clean Architecture; las 01+ dependen de ella).
+- **Cualquier spec que tenga que ver con la base de datos va en `specs/database/`, no en la raíz de `specs/`**: tablas, columnas, índices, constraints, RLS/políticas, migraciones, funciones, triggers, Realtime, Storage, seeds, backfills y cualquier trabajo de Supabase/Postgres. Númeran igual de forma global (`specs/database/08-tabla-daycares.md`), así que al crear una nueva, calcula el siguiente número contando las dos carpetas.
+- `specs/database/` es la fuente de verdad de lo aplicado a la BD: si una spec de feature toca datos, su parte de base de datos se escribe allí (no en la spec de la feature) y ambas se referencian.
+
 ## Supabase
 
-Supabase es el backend objetivo (capa de Infraestructura: reemplaza los mocks de `data/mock/`). Estado actual: **1 tabla creada** (`daycares`) con su migración aplicada; el resto del diseño sigue sin implementar. El diseño de referencia vive en `../07-DB-Schema/opendaycare-database-schema.md` (exposto como project reference `docs`) y es la fuente de verdad para crear el schema.
+Supabase es el backend objetivo (capa de Infraestructura: reemplaza los mocks de `data/mock/`). Estado actual: **1 tabla creada** (`daycares`) con su migración aplicada; el resto del diseño sigue sin implementar. El diseño de referencia vive en `../07-DB-Schema/opendaycare-database-schema.md` (exposto como project reference `docs`) y es la fuente de verdad para crear el schema. Toda spec de base de datos se escribe en `specs/database/` (ver sección Specs).
 
 - **Acceso a la BD:** vía MCP de Supabase, no por código. `apply_migration` para DDL (migraciones versionadas), `execute_sql`/`query_logs` solo para lectura y diagnóstico. Nunca inventes `gen_random_uuid()`/ids: no hardcodees IDs generados en migraciones de datos.
 - **Patrón de migraciones:** el SQL se escribe commiteado en `supabase/migrations/<YYYYMMDDHHMMSS>_<nombre>.sql`, con el timestamp **UTC** del momento (14 dígitos, el mismo reloj que usa `apply_migration`; ej. `20261005182418_create_daycares.sql`). Se aplica con `apply_migration` (MCP) y, si la `version` que devuelve difiere del prefijo del archivo, se **renombra el archivo** para que repo e historial no divergan — sin eso el primer `db push` re-aplicaría la migración. El archivo commiteado es el artefacto revisable en diff; el MCP es el mecanismo de aplicación y versionado. `apply_migration` es el **único** mecanismo de DDL: `execute_sql` no escribe DDL.
@@ -61,7 +67,7 @@ Read `node_modules/next/dist/docs/` before writing code; these differ from older
 - Playwright MCP (configured in `opencode.json`): put every artifact it generates (screenshots, console logs, snapshots) under `.playwright-mcp/` (gitignored).
 - Supabase MCP: connected to the project (`list_tables`, `apply_migration`, `execute_sql`, `get_advisors`, `query_logs`, branches, edge functions).
 - Context7 MCP: use it to pull current framework/library docs.
-- Spec-driven skills live in `.agents/skills/` (`spec`, `spec-impl`); specs go in `specs/` (`00-arquitectura.md` fija la convención Clean Architecture; las specs de features numeradas 01+ dependen de ella).
+- Spec-driven skills live in `.agents/skills/` (`spec`, `spec-impl`); specs go in `specs/` — features en la raíz, base de datos en `specs/database/` (ver sección Specs).
 
 ## Context Mode
 
