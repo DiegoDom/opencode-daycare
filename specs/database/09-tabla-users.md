@@ -304,7 +304,7 @@ El predicado de `daycares` contiene un `exists` sobre `public.users`, y ese subq
 
 10. **Probe del trigger.** Tres `insert` en `auth.users` dentro de `begin` / `rollback`: (a) con `raw_app_meta_data = {"daycare_id": "<uuid válido>"}` → crea un perfil `parent`/`pending`; (b) sin `daycare_id` en `raw_app_meta_data` → la función levanta excepción y **no** se inserta nada; (c) con `raw_user_meta_data = {"role":"admin","daycare_id":"<uuid ajeno>"}` → el perfil sale `parent` y apuntando a la guardería del `app_metadata`, no a la del `user_metadata`. En los tres casos, involved el insert en `auth.users` en `rollback`. Verify: (a) 1 fila `parent`/`pending`, (b) excepción y 0 filas en `public.users`, (c) 1 fila `parent` en el daycare del `app_metadata`.
 
-11. **Advisors.** `get_advisors('security')` y `get_advisors('performance')`. Los 2 WARN de `public.rls_auto_enable()` son el baseline preexistente. El lint INFO `rls_enabled_no_policy` sobre `daycares` **debe desaparecer** (ahora tiene políticas) y no debe aparecer uno nuevo sobre `users`. Ningún advisor puede nombrar `public.handle_new_user`: si aparece `anon_security_definer_function_executable` o `authenticated_security_definer_function_executable`, al `revoke execute` le falta un rol. Verify: el único lint nuevo o restantes por encima de INFO son los 2 WARN baseline.
+11. **Advisors.** `get_advisors('security')` y `get_advisors('performance')`. Los 2 WARN de `public.rls_auto_enable()` son el baseline preexistente. El lint INFO `rls_enabled_no_policy` sobre `daycares` **debe desaparecer** (ahora tiene políticas) y no debe aparecer uno nuevo sobre `users`. Ningún advisor puede nombrar `public.handle_new_user`: si aparece `anon_security_definer_function_executable` o `authenticated_security_definer_function_executable`, al `revoke execute` le falta un rol. En `performance`, el único lint admisible es el INFO `unused_index` sobre `users_daycare_id_idx`, esperado por ser recién creado. Verify: ningún lint por encima de INFO salvo los 2 WARN baseline de `rls_auto_enable()`.
 
 12. **Amendar SPEC 08.** Dos cambios puntuales en `specs/08-tabla-daycares.md`, para que no queden criterios que la base contradiga:
 
@@ -397,7 +397,7 @@ Advisors:
 
 - [ ] El lint **INFO** `rls_enabled_no_policy` que SPEC 08 aceites sobre `daycares` ya no aparece (la tabla tiene políticas) y no aparece uno nuevo sobre `users`.
 
-- [ ] `get_advisors('performance')` no reporta ningún lint.
+- [ ] `get_advisors('performance')` no reporta ningún lint por encima de **INFO**. El único INFO admisible es `unused_index` sobre `users_daycare_id_idx`: es un índice recién creado, así que todavía no tiene estadísticas de uso, y existe por la regla de FK sobre `daycare_id`, no para acelerar una consulta concreta (el predicado de `daycares` resuelve `id` por la PK). Cualquier otro lint, o un `unused_index` sobre otro índice, no cumple el criterio.
 
 Documentación:
 
