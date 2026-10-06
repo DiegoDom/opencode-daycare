@@ -47,7 +47,13 @@ export default function Sidebar({ user }: { user: SidebarUser }) {
   return (
     <>
       <aside className="hidden w-[248px] flex-none flex-col border-r border-line bg-card px-4 py-6 lg:sticky lg:top-0 lg:flex lg:h-screen lg:py-6">
-        <SidebarContent user={user} active={active} onAction={handleLogout} isPending={isPending} />
+        <SidebarContent
+          user={user}
+          active={active}
+          onNavigate={closeMobile}
+          onLogout={handleLogout}
+          isPending={isPending}
+        />
       </aside>
 
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-card px-4 py-3 lg:hidden">
@@ -86,7 +92,8 @@ export default function Sidebar({ user }: { user: SidebarUser }) {
         <SidebarContent
           user={user}
           active={active}
-          onAction={handleLogout}
+          onNavigate={closeMobile}
+          onLogout={handleLogout}
           isPending={isPending}
           brand={
             <div className="flex items-center justify-between">
