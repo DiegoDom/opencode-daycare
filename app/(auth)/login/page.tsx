@@ -1,12 +1,22 @@
 import { LogoIcon } from "@/components/icons";
 import LoginForm from "@/components/login-form";
-import { safeRedirectPath } from "@/lib/auth";
+import { getCurrentUser, safeRedirectPath } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const params = await searchParams;
   const next = safeRedirectPath(
     typeof params.next === "string" ? params.next : undefined,
   );
+  const notice =
+    typeof params.error === "string" && params.error === "pending"
+      ? "Tu cuenta aún no está activada. Contactá a la guardería para activarla."
+      : undefined;
+
+  const user = await getCurrentUser();
+  if (user?.status === "active") {
+    redirect(next);
+  }
 
   return (
     <div className="grid min-h-screen bg-[#FBF4EC] lg:grid-cols-[1.05fr_1fr]">
@@ -51,6 +61,14 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
       <div className="flex items-center justify-center p-10">
         <div className="w-full max-w-[392px]">
+          {notice && (
+            <p
+              role="alert"
+              className="mb-6 rounded-[12px] bg-badge-coral-bg px-4 py-[11px] text-[13.5px] font-semibold text-badge-coral"
+            >
+              {notice}
+            </p>
+          )}
           <LoginForm next={next} />
         </div>
       </div>
