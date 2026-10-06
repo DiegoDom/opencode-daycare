@@ -7,7 +7,7 @@ import { getKidById } from "@/lib/kids";
 
 export default async function KidProfilePage({ params }: PageProps<"/kids/[id]">) {
   const { id } = await params;
-  const kid = getKidById(id);
+  const kid = await getKidById(id);
   if (!kid) notFound();
 
   const user = await getCurrentUser();

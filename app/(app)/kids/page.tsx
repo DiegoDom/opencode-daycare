@@ -11,7 +11,7 @@ import { searchKids } from "@/lib/kids";
 export default async function KidsPage({ searchParams }: PageProps<"/kids">) {
   const params = await searchParams;
   const q = typeof params.q === "string" ? params.q : "";
-  const kids = searchKids(q);
+  const kids = await searchKids(q);
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.status !== "active") redirect("/login?error=pending");
