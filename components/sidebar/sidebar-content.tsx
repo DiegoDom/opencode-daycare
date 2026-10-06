@@ -8,19 +8,28 @@ interface SidebarContentProps {
   user: SidebarUser;
   brand?: ReactNode;
   active?: NavId;
-  onAction?: () => void;
+  onNavigate?: () => void;
+  onLogout?: () => void;
+  isPending?: boolean;
 }
 
-export function SidebarContent({ user, brand = <Brand />, active, onAction }: SidebarContentProps) {
+export function SidebarContent({
+  user,
+  brand = <Brand />,
+  active,
+  onNavigate,
+  onLogout,
+  isPending,
+}: SidebarContentProps) {
   return (
     <>
       {brand}
       <div className="mt-6">
-        <NewPostButton onAction={onAction} />
+        <NewPostButton onNavigate={onNavigate} />
       </div>
-      <Nav active={active} onNavigate={onAction} />
+      <Nav active={active} onNavigate={onNavigate} />
       <div className="mt-auto border-t border-line pt-3.5">
-        <UserFooter user={user} onAction={onAction} />
+        <UserFooter user={user} onAction={onLogout} isPending={isPending} />
       </div>
     </>
   );
