@@ -150,6 +150,15 @@ export default function EditKidModal({ kid, rooms, onClose }: EditKidModalProps)
       setError(result.error);
       return;
     }
+    try {
+      const raw = window.localStorage.getItem("opdaycare.kids.v1");
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      const stored = Array.isArray(parsed) ? (parsed as Record<string, unknown>[]) : [];
+      const filtered = stored.filter((k) => (k as { id: string }).id !== kid.id);
+      window.localStorage.setItem("opdaycare.kids.v1", JSON.stringify(filtered));
+    } catch {
+      // ignore
+    }
     router.refresh();
     onClose();
   }

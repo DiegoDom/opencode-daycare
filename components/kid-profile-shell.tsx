@@ -36,6 +36,8 @@ export default function KidProfileShell({ baseKid, rooms }: { baseKid: Kid; room
   const linkTriggerRef = useRef<HTMLButtonElement>(null);
   const editTriggerRef = useRef<HTMLButtonElement>(null);
 
+
+
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
@@ -45,7 +47,13 @@ export default function KidProfileShell({ baseKid, rooms }: { baseKid: Kid; room
         if (!Array.isArray(parsed)) return;
         const stored = parsed as Kid[];
         const override = stored.find((kid) => kid.id === baseKid.id);
-        if (override) setDisplayKid(override);
+        if (override) {
+          setDisplayKid((prev) => ({
+            ...prev,
+            parents: override.parents,
+            parentsCount: override.parentsCount,
+          }));
+        }
       } catch {
         // localStorage deshabilitado: la vista usa solo baseKid
       }
