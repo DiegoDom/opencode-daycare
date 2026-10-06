@@ -106,3 +106,66 @@ export async function addChildAction(draft: AddKidDraft): Promise<AddKidState> {
   revalidatePath("/kids");
   return {};
 }
+
+export interface UpdateKidDraft {
+  id: string;
+  name: string;
+  birthDate: string; // dd/mm/aaaa
+  room: string;
+  allergies: string;
+  notes: string;
+}
+
+export interface UpdateKidState {
+  error?: string;
+}
+
+export async function updateKidAction(draft: UpdateKidDraft): Promise<UpdateKidState> {
+  const name = draft.name.trim();
+  const nameError = validateName(name);
+  if (nameError) return { error: nameError };
+
+  const dateError = validateBirthDate(draft.birthDate);
+  if (dateError) return { error: dateError };
+  const birthDate = parseBirthDate(draft.birthDate);
+  if (!birthDate) return { error: "Fecha no válida" };
+
+  const user = await getCurrentUser();
+  if (!user || user.status !== "active" || user.role === "parent") {
+    return { error: "No tenés permiso para editar niños." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: room, error: roomError } = await supabase
+    .from("rooms")
+    .select("id")
+    .eq("name", draft.room)
+    .maybeSingle();
+  if (roomError) {
+    console.error("[updateKidAction] rooms:", roomError.message, roomError.code);
+    return { error: "No pudimos guardar los cambios. Intentá de nuevo." };
+  }
+  if (!room) return { error: "Elegí una sala válida." };
+
+  const notes = draft.notes.trim();
+  const { error } = await supabase
+    .from("children")
+    .update({
+      full_name: name,
+      birth_date: isoDate(birthDate),
+      room_id: room.id,
+      allergy_tags: allergyTags(draft.allergies),
+      medical_notes: notes === "" ? null : notes,
+    })
+    .eq("id", draft.id)
+    .eq("daycare_id", user.daycareId);
+  if (error) {
+    console.error("[updateKidAction] update:", error.message, error.code);
+    return { error: "No pudimos guardar los cambios. Intentá de nuevo." };
+  }
+
+  revalidatePath("/kids");
+  revalidatePath(`/kids/${draft.id}`);
+  return {};
+}

@@ -27,7 +27,7 @@ interface CreatePostShellProps {
   currentUser: { name: string; initials: string; role: string };
 }
 
-const KIDS_KEY = "opdaycare.kids.v1";
+
 const POSTS_KEY = "opdaycare.posts.v1";
 const MAX_PHOTOS = 4;
 
@@ -86,7 +86,6 @@ const WHOLE_SELECTED = "border-ink bg-ink text-white";
 
 export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
   const router = useRouter();
-  const [addedKids, setAddedKids] = useState<Kid[]>([]);
   const [recipients, setRecipients] = useState<string[]>([]);
   const [wholeRoom, setWholeRoom] = useState(false);
   const [type, setType] = useState<PostType | null>(null);
@@ -103,40 +102,23 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
-        const raw = window.localStorage.getItem(KIDS_KEY);
-        if (raw) {
-          const parsed: unknown = JSON.parse(raw);
-          if (Array.isArray(parsed)) setAddedKids(parsed as Kid[]);
-        }
-      } catch {
-        // localStorage deshabilitado: solo los niños del mock
-      }
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     paraGroupRef.current?.querySelector("button")?.focus();
   }, []);
 
   const kids = useMemo(() => {
     const baseSoles = baseKids.filter((kid) => kid.room === "Soles");
-    const baseNames = new Set(baseSoles.map((kid) => normalize(kid.name)));
     const seenIds = new Set<string>();
     const seenNames = new Set<string>();
     const merged: Kid[] = [];
-    for (const kid of [...addedKids, ...baseSoles]) {
+    for (const kid of baseSoles) {
       const key = normalize(kid.name);
       if (seenIds.has(kid.id) || seenNames.has(key)) continue;
-      if (baseNames.has(key) && !baseSoles.some((base) => base.id === kid.id)) continue;
       seenIds.add(kid.id);
       seenNames.add(key);
       merged.push(kid);
     }
     return merged.sort((a, b) => a.name.localeCompare(b.name));
-  }, [addedKids, baseKids]);
+  }, [baseKids]);
   const firstNameCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const kid of kids) {
