@@ -33,20 +33,14 @@ export interface Post {
 }
 
 export interface FeedData {
-  roomLabel: string;
-  greeting: string;
   childrenLine: string;
   composePlaceholder: string;
-  currentUser: { name: string; initials: string; role: string };
   posts: Post[];
 }
 
 export const feedData: FeedData = {
-  roomLabel: "GUARDERÍA · SALA SOLES",
-  greeting: "Buenas, Caro",
   childrenLine: "12 niños · martes 17 jun",
   composePlaceholder: "Compartí un momento…",
-  currentUser: { name: "Caro Giménez", initials: "C", role: "Maestra · Soles" },
   posts: [
     {
       id: "post-1",

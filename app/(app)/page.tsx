@@ -1,12 +1,18 @@
+import { redirect } from "next/navigation";
 import ComposeCard from "@/components/compose-card";
 import FeedHeader from "@/components/feed-header";
 import FeedShell from "@/components/feed-shell";
 import SectionDivider from "@/components/section-divider";
 import Sidebar from "@/components/sidebar";
-import { getFeedData } from "@/lib/feed";
+import { getCurrentUser } from "@/lib/auth";
+import { getFeedDisplay } from "@/lib/feed";
 
-export default function Home() {
-  const feed = getFeedData();
+export default async function Home() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.status !== "active") redirect("/login?error=pending");
+
+  const feed = getFeedDisplay(user);
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas lg:h-screen lg:flex-row lg:overflow-hidden">
