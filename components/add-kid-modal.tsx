@@ -8,7 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarIcon } from "./icons";
+import { addChildAction } from "@/lib/kids-actions";
+import type { Room } from "@/lib/kids";
 import {
   formatBirthDateInput,
   formatISOToInput,
@@ -17,29 +20,22 @@ import {
   validateName,
 } from "@/lib/kid-validation";
 
-export interface AddKidDraft {
-  name: string;
-  birthDate: string;
-  room: string;
-  allergies: string;
-  notes: string;
-}
-
-const ROOMS = ["Soles", "Estrellas", "Lunitas"];
-
 interface AddKidModalProps {
+  rooms: Room[];
   onClose: () => void;
-  onSave: (draft: AddKidDraft) => void;
 }
 
-export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
+export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [room, setRoom] = useState(ROOMS[0]);
+  const [room, setRoom] = useState(() => rooms[0]?.name ?? "");
   const [allergies, setAllergies] = useState("");
   const [notes, setNotes] = useState("");
   const [touchedName, setTouchedName] = useState(false);
   const [touchedDate, setTouchedDate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const datePickerRef = useRef<HTMLInputElement>(null);
   const birthDateInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,15 +44,15 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
   const valid =
     validateName(name) === undefined &&
     validateBirthDate(birthDate) === undefined &&
-    ROOMS.includes(room);
+    rooms.some((value) => value.name === room);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !saving) onClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, saving]);
 
   function handleFormKeyDown(event: ReactKeyboardEvent<HTMLFormElement>) {
     if (event.key !== "Enter") return;
@@ -68,20 +64,30 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
     }
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     if (!valid) {
       setTouchedName(true);
       setTouchedDate(true);
       return;
     }
-    onSave({
+    setSaving(true);
+    setError(null);
+    const result = await addChildAction({
       name: name.trim(),
       birthDate: birthDate.trim(),
       room,
       allergies: allergies.trim(),
       notes: notes.trim(),
     });
+    setSaving(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+    onClose();
   }
 
   function handleBirthDateChange(event: ChangeEvent<HTMLInputElement>) {
@@ -157,7 +163,8 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="text-[15px] font-bold text-muted"
+            disabled={saving}
+            className="text-[15px] font-bold text-muted disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -166,14 +173,23 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
           </span>
           <button
             type="submit"
-            disabled={!valid}
+            disabled={!valid || saving}
+            aria-busy={saving}
             className="text-[15px] font-extrabold text-terracotta disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Guardar
+            {saving ? "Guardando…" : "Guardar"}
           </button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-[26px]">
+          {error && (
+            <p
+              role="alert"
+              className="mb-3.5 rounded-[12px] bg-badge-coral-bg px-4 py-[11px] text-[13.5px] font-semibold text-badge-coral"
+            >
+              {error}
+            </p>
+          )}
           <div className="mb-3.5">
             <label
               htmlFor="kid-name"
@@ -274,9 +290,9 @@ export default function AddKidModal({ onClose, onSave }: AddKidModalProps) {
                   onChange={(event) => setRoom(event.target.value)}
                   className="w-full appearance-none rounded-[14px] border-[1.5px] border-[#EADFD0] bg-white px-4 py-[11px] pr-10 text-[15px] font-bold text-ink outline-none focus:border-coral"
                 >
-                  {ROOMS.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
+                  {rooms.map((value) => (
+                    <option key={value.id} value={value.name}>
+                      {value.name}
                     </option>
                   ))}
                 </select>

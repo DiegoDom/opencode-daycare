@@ -70,8 +70,9 @@ const PALETTE = [
 const ALLERGY_BADGE_STYLE = { bg: "#FBD8CC", text: "#D9684A" };
 
 // Catálogo de la spec: tag en inglés → label en español; sin match se muestra
-// el tag en mayúsculas tal cual.
-const ALLERGY_LABELS: Record<string, string> = {
+// el tag en mayúsculas tal cual. `addChildAction` lo usa inverso (texto del
+// formulario → tag).
+export const ALLERGY_LABELS: Record<string, string> = {
   peanut: "MANÍ",
   lactose: "LACTOSA",
   gluten: "GLUTEN",

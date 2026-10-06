@@ -67,15 +67,6 @@ export function todayISO(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-export function isValidDraft(draft: { name: string; birthDate: string; room: string }): boolean {
-  const ROOMS = ["Soles", "Estrellas", "Lunitas"];
-  return (
-    validateName(draft.name) === undefined &&
-    validateBirthDate(draft.birthDate) === undefined &&
-    ROOMS.includes(draft.room)
-  );
-}
-
 export function validateParentName(value: string): string | null {
   if (value.trim().length <= 1) return "Ingresa el nombre";
   return null;
