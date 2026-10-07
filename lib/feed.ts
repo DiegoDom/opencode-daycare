@@ -22,6 +22,7 @@ export interface FeedDisplay {
     name: string;
     initials: string;
     role: string;
+    isParent: boolean;
   };
   posts: Post[];
 }
@@ -141,6 +142,7 @@ export async function getFeedDisplay(user: SessionUser): Promise<FeedDisplay> {
       name: user.fullName,
       initials: initialsFrom(user.fullName),
       role: roleLabel,
+      isParent: user.role === "parent",
     },
     posts: rows.map((row) => toPost(row, user.id)),
   };

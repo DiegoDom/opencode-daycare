@@ -4,6 +4,7 @@ export interface SidebarUser {
   name: string;
   initials: string;
   role: string;
+  isParent: boolean;
 }
 
 export function UserFooter({

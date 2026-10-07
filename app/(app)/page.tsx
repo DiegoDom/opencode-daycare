@@ -24,10 +24,12 @@ export default async function Home() {
             greeting={feed.greeting}
             childrenLine={feed.childrenLine}
           />
-          <ComposeCard
-            initials={feed.currentUser.initials}
-            placeholder={feed.composePlaceholder}
-          />
+          {user.role !== "parent" ? (
+            <ComposeCard
+              initials={feed.currentUser.initials}
+              placeholder={feed.composePlaceholder}
+            />
+          ) : null}
           <SectionDivider label="PUBLICADO HOY" />
 
           <FeedShell basePosts={feed.posts} currentUser={feed.currentUser} />
