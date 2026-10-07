@@ -116,7 +116,8 @@ async function childrenLine(user: SessionUser): Promise<string> {
       : supabase.from("children").select("id", { count: "exact", head: true });
   const { count, error } = await query;
   if (error) throw new Error(`getFeedDisplay: ${error.message}`);
-  return `${count ?? 0} niños · ${todayLabel()}`;
+  const kids = count ?? 0;
+  return `${kids} ${kids === 1 ? "niño" : "niños"} · ${todayLabel()}`;
 }
 
 // La visibilidad la decide el RLS de SPEC 18: acá solo se intersecta el
