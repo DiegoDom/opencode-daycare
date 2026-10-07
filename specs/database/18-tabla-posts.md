@@ -3,7 +3,9 @@
 > **Estado:** Approved\
 ****Depende de:** SPEC 08 — `daycares`, SPEC 09 — `users`, SPEC 12 — `children`/`rooms`, SPEC 15 — `invitations`/`parent_children`, SPEC 17 — Creación de entradas (feature)\
 ****Fecha:** 2026-10-07\
-****Objetivo:** Parte de base de datos de la SPEC 17: crear el enum `post_type`, las tablas `posts`, `post_children` y `post_photos`, la función `my_child_rooms()` y el bucket `post-photos`, con RLS de lectura para staff/admin y para los padres vinculados. La feature spec **referencia** este documento como fuente de verdad del esquema.
+****Objetivo:** Parte de base de datos de la SPEC 17: crear el enum `post_type`, las tablas `posts`, `post_children` y `post_photos`, las funciones `my_child_rooms()` y `parent_sees_post()` y el bucket `post-photos`, con RLS de lectura para staff/admin y para los padres vinculados. La feature spec **referencia** este documento como fuente de verdad del esquema.
+
+> ⚠️ **Enmienda aplicada (2026-10-07):** la política `posts_select_parent` original subqueryeaba `post_children`, y `post_children_insert_staff` subqueryeaba `posts`. Al insertar en `post_children`, el `WITH CHECK` corría el RLS de `posts` cuyo `posts_select_parent` re-entraba en `post_children` → Postgres dispara `42P17 infinite recursion detected in policy for relation "post_children"`. La visibilidad del padre se delegó a la función `SECURITY DEFINER` `public.parent_sees_post(uuid)` (sección 5b) y `posts_select_parent` quedó `using (public.parent_sees_post(posts.id))` — rompe el ciclo porque la función corre por fuera del RLS del invocador. Cambio aplicado como migración `fix_posts_parent_recursion` sobre `create_posts_feed` ya aplicada.
 
 > **Hijo de:** [SPEC 17 — Creación de entradas del feed en Supabase (staff, con o sin fotos)](../17-crear-publicacion-supabase.md). Este spec solo cubre lo que toca a la base de datos (migración + seed); el código de la app (Server Action, feed, guard, UI) pertenece a la feature spec.
 
@@ -26,6 +28,7 @@ Estado verificado de la base al momento de escribir (2026-10-07):
   - Enum `post_type` con los 7 valores del dominio, guardián `do $$`.
   - Tablas `posts`, `post_children`, `post_photos` con índices, constraints y trigger `posts_set_updated_at`.
   - `public.my_child_rooms()` (`SECURITY DEFINER`, `set search_path = ''`, `revoke` a `public`/`anon`, `grant` a `authenticated`).
+  - `public.parent_sees_post(uuid)` (`SECURITY DEFINER`, mismo patrón) — enmienda: ver ⚠️ al inicio y sección 5b.
   - RLS en las 3 tablas + **8 políticas** (3 en `posts`, 3 en `post_children`, 2 en `post_photos`).
   - Bucket `post-photos` (público, ≤5 MB, PNG/JPG/WebP) + política `insert` sobre `storage.objects`.
   - Reconciliación del nombre del archivo con la `version` que devuelve `apply_migration`.
@@ -163,6 +166,38 @@ grant  execute on function public.my_child_rooms() to authenticated;
 - El `revoke` va en la **misma** migración (skill de Supabase: `EXECUTE` a `PUBLIC` por defecto → endpoint público en `/rest/v1/rpc/my_child_rooms`; advisor `anon_security_definer_function_executable`).
 - `set search_path = ''` hace explícito el schema en cada objeto.
 
+### 5b. `parent_sees_post()` — visibilidad del post para el padre (enmienda)
+
+```sql
+create or replace function public.parent_sees_post(p_post_id uuid)
+  returns boolean
+  language sql
+  security definer
+  set search_path = ''
+as $$
+  select exists (
+    select 1 from public.post_children pc
+    where pc.post_id = p_post_id
+      and exists (select 1 from public.parent_children link
+        where link.child_id = pc.child_id
+          and link.parent_id = (select auth.uid()))
+  )
+  or exists (
+    select 1 from public.posts po
+    where po.id = p_post_id
+      and po.room_id is not null
+      and po.room_id in (select public.my_child_rooms())
+  );
+$$;
+
+revoke execute on function public.parent_sees_post(uuid) from public, anon;
+grant  execute on function public.parent_sees_post(uuid) to authenticated;
+```
+
+- Es el cuerpo de la `posts_select_parent` original corrido con privilegios del dueño: resuelve "destinatarios propios" (`post_children` ∩ `parent_children`) **o** "anuncio de una sala mía" (`room_id` en `my_child_rooms()`).
+- `SECURITY DEFINER` **obligatorio**: rompe el ciclo de RLS (ver Anti-recursión). Sin él, `posts_select_parent` desde `post_children_insert_staff` re-entraría en `post_children` y Postgres dispararía `42P17`.
+- El `revoke`/`grant` va en la misma migración (`fix_posts_parent_recursion`), mismo patrón de `my_child_rooms()`.
+
 ### 6. RLS y políticas
 
 ```sql
@@ -178,16 +213,9 @@ create policy posts_select_staff on public.posts for select to authenticated
       and u.status = 'active' and u.role in ('staff', 'admin')));
 
 -- padres: entradas de sus hijos + anuncios de sus salas
+-- (delega en parent_sees_post(): ver enmienda en 5b y Anti-recursión)
 create policy posts_select_parent on public.posts for select to authenticated
-  using (
-    exists (select 1 from public.post_children pc
-      where pc.post_id = posts.id
-        and exists (select 1 from public.parent_children link
-          where link.child_id = pc.child_id
-            and link.parent_id = (select auth.uid())))
-    or (posts.room_id is not null
-        and posts.room_id in (select public.my_child_rooms()))
-  );
+  using (public.parent_sees_post(posts.id));
 
 -- solo staff/admin de la guardería publicando como ellos mismos,
 -- y el room (si va) debe ser de la misma guardería
@@ -285,19 +313,23 @@ Este spec es **Infraestructura pura** de BD (SPEC 00): no toca Dominio, Aplicaci
 
 ### Anti-recursión de RLS (por qué cada política subqueriea lo que subqueriea)
 
-Postgres lanza `42P17 infinite recursion detected in policy` si las políticas de dos tablas se referencian en ciclo. El grafo de este spec es un DAG:
+Postgres lanza `42P17 infinite recursion detected in policy` si las políticas de una tabla re-entran en la misma tabla durante la evaluación. El `WITH CHECK` de `post_children_insert_staff` subqueryeaba `posts`; al insertar en `post_children`, ese subquery corría el RLS de `posts` (`posts_select_staff` + `posts_select_parent`), y la `posts_select_parent` original volvía a subqueryear `post_children` → re-entrada → `42P17`. Solo se manifestaba en `INSERT` sobre `post_children` (las lecturas de padre eran correctas), pero es la forma en que la app escribe destinatarios (SPEC 17), así que era un bug real.
+
+La corrección (migración `fix_posts_parent_recursion`): **ninguna política de `posts` vuelve a entrar en `post_children`**. `posts_select_parent` delega en `public.parent_sees_post(posts.id)`, una `SECURITY DEFINER` que corre por fuera del RLS del invocador. El grafo efectivo es un DAG:
 
 ```
-posts → { users, rooms, post_children → { children → users, parent_children → users }, my_child_rooms() }
+posts → { users, rooms, parent_sees_post() → { post_children, children, parent_children, my_child_rooms() → { parent_children, children } } }
 post_children → { posts (solo en INSERT), children, users, parent_children }
 post_photos → { posts, users }
 storage.objects → { users }
 ```
 
-- `posts_select_parent` subqueriea `post_children`, cuyas políticas de `select` **no** tocan `posts` (por eso `post_children` lleva `daycare_id` denormalizado para el predicado de staff).
+- `posts_select_parent` ya no subqueriea `post_children`: `parent_sees_post()` se encarga (definer), y `post_children` conserva `daycare_id` denormalizado para el predicado de staff.
 - `post_photos` delega en `posts` pero `posts` nunca subqueriea `post_photos`.
-- `my_child_rooms()` es `SECURITY DEFINER`: entra a `children`/`parent_children` por fuera de sus políticas, sin disparar recursión.
+- `my_child_rooms()` y `parent_sees_post()` son `SECURITY DEFINER`: entran a `children`/`parent_children`/`post_children` por fuera de sus políticas, sin disparar recursión.
 - `users` y `parent_children` son hojas (sus políticas no apuntan a estas tablas).
+
+> El DAG se verifica por probe (paso 4): un `INSERT` real en `post_children` como staff no debe fallar con `42P17`.
 
 Patrón de migraciones (SPEC 08): escribir el `.sql` commiteado, aplicarlo con `apply_migration`, renombrar el archivo si la `version` difiere, verificar con probes + advisors. Seeds en `supabase/seed/` con `execute_sql` e idempotencia (`where not exists` / `is distinct from`).
 
@@ -314,7 +346,7 @@ Ambas con `author_id`/`author_name` = "Staff Solas" (seed 0001). Idempotente: `w
 
 ## Plan de implementación
 
-1. **Migración.** Escribir el `.sql` de arriba (enum → tablas → índices → trigger → `my_child_rooms` → RLS → bucket + política de storage) y aplicarlo con `apply_migration`; si la `version` devuelta no coincide con el prefijo del archivo, renombrar el archivo. Verify: `list_tables` muestra las 3 tablas con `relrowsecurity = true`; `pg_policies` lista 3+3+2 políticas en `public` y 1 en `storage.objects`; `get_advisors('security')` sin `anon_security_definer_function_executable` ni hallazgos nuevos; `get_advisors('performance')` limpio.
+1. **Migración.** Escribir el `.sql` de arriba (enum → tablas → índices → trigger → `my_child_rooms` → `parent_sees_post` → RLS → bucket + política de storage) y aplicarlo con `apply_migration`; si la `version` devuelta no coincide con el prefijo del archivo, renombrar el archivo. Verify: `list_tables` muestra las 3 tablas con `relrowsecurity = true`; `pg_policies` lista 3+3+2 políticas en `public` y 1 en `storage.objects`; `get_advisors('security')` sin `anon_security_definer_function_executable` ni hallazgos nuevos; `get_advisors('performance')` limpio. *(La enmienda `parent_sees_post`/`posts_select_parent` viajó como segunda migración `fix_posts_parent_recursion` sobre esta ya aplicada.)*
 2. **Exposición al Data API.** Probe de que `authenticated` puede consultar `posts` por la Data API (precedente SPEC 08, changelog 2026-10-30); si la tabla no está expuesta, grant explícito anotado en la migración. Verify: query REST de `posts` como `authenticated` devuelve filas (0 o las del seed), no error de esquema.
 3. **Seed.** Escribir `supabase/seed/0004_dev_posts.sql` y aplicarlo con `execute_sql`. Verify: 2 filas en `posts`, 1 en `post_children`; segunda corrida no duplica.
 4. **Probes de RLS** (bloque con `set local role authenticated` + `request.jwt.claims`, con `rollback`, patrón SPEC 15):
@@ -337,7 +369,7 @@ Ambas con `author_id`/`author_name` = "Staff Solas" (seed 0001). Idempotente: `w
 
 - [ ] `pg_policies` lista la política `insert` de `storage.objects` para `post-photos`; el bucket existe con `public = true`, `file_size_limit = 5242880` y los 3 mimes.
 
-- [ ] `public.my_child_rooms()` existe; `has_function_privilege('authenticated', ..., 'EXECUTE')` es `true`; `anon` y `public` no tienen `EXECUTE`.
+- [ ] `public.my_child_rooms()` y `public.parent_sees_post(uuid)` existen; `has_function_privilege('authenticated', ..., 'EXECUTE')` es `true` para ambas; `anon` y `public` no tienen `EXECUTE`.
 
 - [ ] `has_table_privilege('anon', 'posts', 'SELECT')` es `true` (default privileges) y aun así `anon` ve 0 filas en las 3 tablas por RLS.
 
@@ -345,7 +377,7 @@ Ambas con `author_id`/`author_name` = "Staff Solas" (seed 0001). Idempotente: `w
 
 - [ ] Probe como staff de otra guardería: 0 filas de las entradas ajenas; `insert` con `room_id`/`child_id` ajeno rechazado.
 
-- [ ] Probe como staff propio: ve las 2 entradas del seed con sus `post_children`/`post_photos` completos.
+- [ ] Probe como staff propio: ve las 2 entradas del seed con sus `post_children`/`post_photos` completos; un `insert` real en `posts` y `post_children` como staff **no falla con `42P17`** (anti-recursión verificada por probe, no solo por grafo).
 
 - [ ] `get_advisors('security')` no reporta `anon_security_definer_function_executable` ni hallazgos nuevos atribuibles a este spec; `get_advisors('performance')` sin hallazgos nuevos.
 
@@ -356,6 +388,7 @@ Ambas con `author_id`/`author_name` = "Staff Solas" (seed 0001). Idempotente: `w
 - **Sí:** enum `post_type` con los **7 valores en español** del dominio del front (no los 6 ingleses `meal/nap/...` del schema de referencia): mapeo 1:1 con `PostType`, cero código de traducción, y precedente de enums en español (`parent_role`).
 - **Sí:** `author_name` y `child_full_name` como snapshots — evita crear políticas nuevas sobre `users` (daría nombres de padres al staff) y sobre `children` (daría `birth_date`/`medical_notes` a los padres). Precedente: `invitations.full_name`.
 - **Sí:** `my_child_rooms()` `SECURITY DEFINER` en vez de `children_select` para padres: superficie mínima (solo sala, solo propios) y el feed no necesita más.
+- **Sí (enmienda):** `parent_sees_post()` `SECURITY DEFINER` en vez de subquery inline de `post_children` dentro de `posts_select_parent` — la versión inline ciclaba con `post_children_insert_staff` (`42P17`). La función encapsula el mismo predicado original sin exponer filas nuevas.
 - **Sí:** `daycare_id` denormalizado en `post_children` — permite el `select` de staff como predicado hoja sobre `users` y corta el ciclo `posts ↔ post_children` (anti-recursión, arriba).
 - **Sí:** `post_photos` sin `daycare_id`: su `select` delega en `posts` (`exists`), que nunca lo subqueriea.
 - **Sí:** visibilidad del padre como `OR` en `posts_select_parent` (destinatarios propios o anuncio de sus salas) — es la regla del schema de referencia §7 traducida a políticas.
@@ -373,7 +406,7 @@ Ambas con `author_id`/`author_name` = "Staff Solas" (seed 0001). Idempotente: `w
 | Riesgo | Mitigación |
 | --- | --- |
 | **Changelog 2026-04-28:** desde **2026-10-30** las tablas nuevas de `public` dejan de exponerse al Data API por defecto (hoy es opt-in) | Paso 2 del plan: probe de exposición con el cliente de SPEC 17 y grant explícito si hace falta (precedente SPEC 08). El RLS sigue siendo la puerta de filas. |
-| `42P17 infinite recursion` si una política subqueriea en ciclo | Grafo DAG verificado (Arquitectura); `post_children` denormalizado y `my_child_rooms()` definer rompen los únicos ciclos posibles. El paso 1 lo prueba al aplicar. |
+| `42P17 infinite recursion` si una política subqueriea en ciclo | Detectado y corregido en la enmienda: `posts_select_parent` delega en `parent_sees_post()` (definer) y ninguna política de `posts` vuelve a `post_children`. Se prueba el `INSERT` real en `post_children` en el paso 4. |
 | Un `SECURITY DEFINER` sin `revoke` deja `my_child_rooms` como RPC público | `revoke` de `public`/`anon` en la misma migración + criterio con `has_function_privilege` + advisor. |
 | Parent sin filas de `children` no ve anuncios de sala | Resuelto por `my_child_rooms()`; probe del paso 4 verifica anuncio visible/invisible por sala. |
 | Borrado de una sala o de un niño deja sin entrada a los padres | `on delete cascade` documentado; sin UI de borrado hoy (SPEC 12). |
