@@ -1,15 +1,15 @@
 # SPEC 18 — Tablas `posts`, `post_children`, `post_photos` y bucket `post-photos`
 
-> **Estado:** Borrador\
-> **Depende de:** SPEC 08 — `daycares`, SPEC 09 — `users`, SPEC 12 — `children`/`rooms`, SPEC 15 — `invitations`/`parent_children`, SPEC 17 — Creación de entradas (feature)\
-> **Fecha:** 2026-10-07\
-> **Objetivo:** Parte de base de datos de la SPEC 17: crear el enum `post_type`, las tablas `posts`, `post_children` y `post_photos`, la función `my_child_rooms()` y el bucket `post-photos`, con RLS de lectura para staff/admin y para los padres vinculados. La feature spec **referencia** este documento como fuente de verdad del esquema.
+> **Estado:** Approved\
+****Depende de:** SPEC 08 — `daycares`, SPEC 09 — `users`, SPEC 12 — `children`/`rooms`, SPEC 15 — `invitations`/`parent_children`, SPEC 17 — Creación de entradas (feature)\
+****Fecha:** 2026-10-07\
+****Objetivo:** Parte de base de datos de la SPEC 17: crear el enum `post_type`, las tablas `posts`, `post_children` y `post_photos`, la función `my_child_rooms()` y el bucket `post-photos`, con RLS de lectura para staff/admin y para los padres vinculados. La feature spec **referencia** este documento como fuente de verdad del esquema.
 
 > **Hijo de:** [SPEC 17 — Creación de entradas del feed en Supabase (staff, con o sin fotos)](../17-crear-publicacion-supabase.md). Este spec solo cubre lo que toca a la base de datos (migración + seed); el código de la app (Server Action, feed, guard, UI) pertenece a la feature spec.
 
 ## Por qué existe este spec
 
-El feed vive en mocks (SPEC 01) y las entradas nuevas en `localStorage` (SPEC 07). Este spec aterriza el feed en la BD siguiendo el patrón fijado por SPEC 08/09/12/15 (migración en `supabase/migrations/` aplicada vía MCP), con la restricción de diseño central: **el padre no puede leer `children`** (solo existe `children_select_staff`, SPEC 12), así que la visibilidad de anuncios por sala no puede asomarse a esa tabla desde una política de `posts` sin abrir `birth_date`/`medical_notes` a los padres. Se resuelve con `my_child_rooms()` (`SECURITY DEFINER`, scoped a `auth.uid()`).
+El feed vive en mocks (SPEC 01) y las entradas nuevas en `localStorage` (SPEC 07). Este spec aterriza el feed en la BD siguiendo el patrón fijado por SPEC 08/09/12/15 (migración en `supabase/migrations/` aplicada vía MCP), con la restricción de diseño central: **el padre no puede leer** `children` (solo existe `children_select_staff`, SPEC 12), así que la visibilidad de anuncios por sala no puede asomarse a esa tabla desde una política de `posts` sin abrir `birth_date`/`medical_notes` a los padres. Se resuelve con `my_child_rooms()` (`SECURITY DEFINER`, scoped a `auth.uid()`).
 
 Estado verificado de la base al momento de escribir (2026-10-07):
 
@@ -29,13 +29,13 @@ Estado verificado de la base al momento de escribir (2026-10-07):
   - RLS en las 3 tablas + **8 políticas** (3 en `posts`, 3 en `post_children`, 2 en `post_photos`).
   - Bucket `post-photos` (público, ≤5 MB, PNG/JPG/WebP) + política `insert` sobre `storage.objects`.
   - Reconciliación del nombre del archivo con la `version` que devuelve `apply_migration`.
-- **RLS de `posts` (SELECT):**
+- **RLS de** `posts` **(SELECT):**
   - `posts_select_staff`: predicado estándar sobre `daycare_id` — staff/admin activos ven **todas** las entradas de su guardería (sin filtro de sala).
   - `posts_select_parent`: entradas que incluyen a uno de sus hijos (`post_children` ∩ `parent_children`) **o** entradas con `room_id` de una sala donde tiene hijos (`my_child_rooms()`).
   - Sin `UPDATE`/`DELETE` (denied by default; no hay UI de edición en SPEC 17).
-- **RLS de `posts` (INSERT):** `author_id = auth.uid()` + predicado staff/admin sobre `daycare_id` + `room_id` nulo o de una sala **de la misma guardería** (evita que un staff publique en salas ajenas).
-- **RLS de `post_children`:** `select` staff (vía fila de `children` del mismo daycare + predicado de rol) y `select` parent (solo filas de sus hijos vinculados); `insert` exige que el post y el niño pertenezcan al mismo daycare y que el viewer pueda insertar en ese post. Sin `update`/`delete`.
-- **RLS de `post_photos`:** `select` delegado en la visibilidad del post (`exists posts`, el RLS de `posts` hace el filtrado — cubre staff y parent con una sola política); `insert` exige poder insertar en el post dueño. Sin `update`/`delete` (no hay upsert: `storage` necesita `insert` solo, ver skill de Supabase).
+- **RLS de** `posts` **(INSERT):** `author_id = auth.uid()` + predicado staff/admin sobre `daycare_id` + `room_id` nulo o de una sala **de la misma guardería** (evita que un staff publique en salas ajenas).
+- **RLS de** `post_children`**:** `select` staff (vía fila de `children` del mismo daycare + predicado de rol) y `select` parent (solo filas de sus hijos vinculados); `insert` exige que el post y el niño pertenezcan al mismo daycare y que el viewer pueda insertar en ese post. Sin `update`/`delete`.
+- **RLS de** `post_photos`**:** `select` delegado en la visibilidad del post (`exists posts`, el RLS de `posts` hace el filtrado — cubre staff y parent con una sola política); `insert` exige poder insertar en el post dueño. Sin `update`/`delete` (no hay upsert: `storage` necesita `insert` solo, ver skill de Supabase).
 - **Storage:** bucket `post-photos` con `file_size_limit = 5242880` y `allowed_mime_types = ['image/png','image/jpeg','image/webp']` (validación server-side del bucket); política `insert` solo para staff/admin activos cuyo `daycare_id` coincide con `(storage.foldername(name))[1]` (path `{daycare_id}/{post_id}/{i}-{nombre}`). Lectura vía endpoint público del bucket (sin política `select`); sin `delete` ni `update`.
 - **Seed** `supabase/seed/0004_dev_posts.sql`: 2 entradas de texto (una anuncio a toda la sala "Soles", una a destinatarios específicos), idempotente, aplicado con `execute_sql`.
 - **Probe de exposición al Data API** de las 3 tablas nuevas (changelog 2026-04-28: desde 2026-10-30 no se exponen por defecto; precedente SPEC 08).
@@ -271,8 +271,8 @@ create policy post_photos_insert_staff on storage.objects for insert to authenti
 ```
 
 - Path convention: `{daycare_id}/{post_id}/{i}-{nombre-archivo}`. El primer folder debe ser el `daycare_id` del publicador — la action de SPEC 17 lo garantiza.
-- **No hay política `select`**: el bucket es público y la lectura pasa por `/object/public/...` (sin auth, sin RLS). **No hay `update`** (la action no hace upsert; el skill de Supabase recuerda que upsert necesitaría `insert`+`select`+`update`, no es nuestro caso).
-- **No hay `delete`**: no hay UI de borrado; los archivos huérfanos (riesgo de SPEC 17) quedan hasta limpieza manual.
+- **No hay política** `select`: el bucket es público y la lectura pasa por `/object/public/...` (sin auth, sin RLS). **No hay** `update` (la action no hace upsert; el skill de Supabase recuerda que upsert necesitaría `insert`+`select`+`update`, no es nuestro caso).
+- **No hay** `delete`: no hay UI de borrado; los archivos huérfanos (riesgo de SPEC 17) quedan hasta limpieza manual.
 - Los límites de tamaño/mime del bucket son server-side reales; la action valida además para devolver error amigable.
 
 ## Arquitectura / Patrones
@@ -328,16 +328,27 @@ Ambas con `author_id`/`author_name` = "Staff Solas" (seed 0001). Idempotente: `w
 ## Criterios de aceptación
 
 - [ ] `posts`, `post_children` y `post_photos` existen en `public` con `relrowsecurity = true` y `list_tables` las muestra.
+
 - [ ] El enum `post_type` existe con los 7 valores (`comida`, `siesta`, `actividad`, `logro`, `animo`, `foto`, `anuncio`); la migración es re-aplicable (guardián `do $$` + `if not exists`).
+
 - [ ] Existen los índices `(daycare_id, published_at desc)` en `posts`, `child_id` en `post_children` y `post_id` en `post_photos`.
+
 - [ ] `pg_policies` lista 3 políticas en `posts` (2 select + 1 insert, todas `to authenticated`), 3 en `post_children` (2 select + 1 insert) y 2 en `post_photos` (1 select + 1 insert). Cero políticas `UPDATE`/`DELETE` en las 3 tablas.
+
 - [ ] `pg_policies` lista la política `insert` de `storage.objects` para `post-photos`; el bucket existe con `public = true`, `file_size_limit = 5242880` y los 3 mimes.
+
 - [ ] `public.my_child_rooms()` existe; `has_function_privilege('authenticated', ..., 'EXECUTE')` es `true`; `anon` y `public` no tienen `EXECUTE`.
+
 - [ ] `has_table_privilege('anon', 'posts', 'SELECT')` es `true` (default privileges) y aun así `anon` ve 0 filas en las 3 tablas por RLS.
+
 - [ ] Probe como `parent`: ve la entrada que apunta a su hijo y el anuncio de su sala; 0 filas de entradas de otras salas/niños ajenos; 0 filas al intentar `insert`.
+
 - [ ] Probe como staff de otra guardería: 0 filas de las entradas ajenas; `insert` con `room_id`/`child_id` ajeno rechazado.
+
 - [ ] Probe como staff propio: ve las 2 entradas del seed con sus `post_children`/`post_photos` completos.
+
 - [ ] `get_advisors('security')` no reporta `anon_security_definer_function_executable` ni hallazgos nuevos atribuibles a este spec; `get_advisors('performance')` sin hallazgos nuevos.
+
 - [ ] `supabase/seed/0004_dev_posts.sql` deja 2 filas en `posts` y 1 en `post_children`; una segunda corrida no duplica ni bumpea `updated_at`.
 
 ## Decisiones
