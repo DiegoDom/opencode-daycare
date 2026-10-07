@@ -1,21 +1,18 @@
 # SPEC 14 — Activación y registro de la cuenta del padre
 
-> **Estado:** Draft
-> **Depende de:** SPEC 00 — Arquitectura, SPEC 04 — Pantalla activar cuenta, SPEC 09 — Tabla `users`, SPEC 10 — Autenticación y protección de rutas, SPEC 13 — Invitación en BD y email con Resend
-> **Fecha:** 2026-10-06
-> **Objetivo:** Hacer funcional `/activate-account`: el padre confirma el código de la invitación, crea su cuenta (Supabase Auth + fila en `public.users`), se vincula al niño (`parent_children`) y queda logueado. El vínculo inicia en SPEC 13; esta spec lo resuelve.
+> **Estado:** Approved **Depende de:** SPEC 00 — Arquitectura, SPEC 04 — Pantalla activar cuenta, SPEC 09 — Tabla `users`, SPEC 10 — Autenticación y protección de rutas, SPEC 13 — Invitación en BD y email con Resend **Fecha:** 2026-10-06 **Objetivo:** Hacer funcional `/activate-account`: el padre confirma el código de la invitación, crea su cuenta (Supabase Auth + fila en `public.users`), se vincula al niño (`parent_children`) y queda logueado. El vínculo inicia en SPEC 13; esta spec lo resuelve.
 
 ## Alcance
 
 **Incluye:**
 
-- **`lib/activate.ts`** — consultas para los pasos 1 y 2 del flux:
+- `lib/activate.ts` — consultas para los pasos 1 y 2 del flux:
   - `lookupInvitationByCodePrefix(code, email)`: como la BD solo guarda el hash, se trae por prefijo de 6 del hash de `sha256(code)` y se confirma con `timingSafeEqual` sobre el hash completo (`constraint_invitations_code_hash_idx`).
   - `getActivationInvitation(email)`: invitación `pending` más reciente para el email (para el estado "seleccioná tu cuenta").
 - **Envío del correo de verificación** (`lib/activate-actions.ts` → `lib/email/invitation.ts`):
   - `resendVerificationEmail({ email })` (paso 1): reenvía el email con `code` y `link` para ese email. Mayor seguridad que la confirmación por link.
   - `sendActivationEmail` (paso 2): mismo correo con los `interface` del padre.
-- **Server Actions en `lib/activate-actions.ts`**:
+- **Server Actions en** `lib/activate-actions.ts`:
   - `verifyActivationEmail(state, formData)` (paso 1): valida el email, reenvía el correo de verificación y devuelve `{ ok: true, email }`.
   - `createParentAccountAction` (paso 2): valida los `interface` del padre, la contraseña y el código, crea la cuenta con `admin.createUser({ email_confirm: true, app_metadata, user_metadata })`, promueve a `active` y vincula con `parent_children` de forma atómica, y **loguea** al padre (`signInWithPassword`) para redirigir a `/`.
 - **Formulario funcional:** `app/(auth)/activate-account/page.tsx` usa `useFormState` para las dos pantallas del mockup; `components/pages/activate-account.tsx` recibe `firstStep: boolean` y un `PrefilledValues` por searchParams; `components/activate-account-form.tsx` se convierte en solo presentacional (extrae `activateInputs` y `activateLabels` a `lib/activation-strings.ts`).
@@ -111,11 +108,11 @@ Sigue SPEC 00 y los precedentes recientes:
 
 - La creación de cuenta usa **Supabase Auth Admin API** (server-only) ya disponible en `@supabase/supabase-js`. `daycare_id`, `role` y `status` se escriben únicamente en `app_metadata` por el servidor.
 - **Auto-login** con `signInWithPassword` inmediatamente después de activar, con `data/supabase/backend.ts` pasando la sesión al navegador (patrón de `proxy.ts`); se prefiere sobre una ruta separada con token firmado.
-- **`verifyActivationEmail`** no depende de la accesibilidad del enlace (mayor seguridad). Pasos: (1) el padre pide el email de verificación; (2) recibe el código + link; (3) crea la cuenta con el código.
+- `verifyActivationEmail` no depende de la accesibilidad del enlace (mayor seguridad). Pasos: (1) el padre pide el email de verificación; (2) recibe el código + link; (3) crea la cuenta con el código.
 - **FILO (función de 1 argu.)** no aplica aquí — `admin.createUser` no usa `createClient` con RLS; la atomicidad la da la transacción de `activate_invitation`.
 - `app/` y `components/` siguen sin importar de `data/`.
 - Las Server Actions viven en `lib/`.
-- **Sin vuelta atrás para REACT 19 `useActionState`** (reemplaza `useFormState`), según las guías de React/Supabase.
+- **Sin vuelta atrás para REACT 19** `useActionState` (reemplaza `useFormState`), según las guías de React/Supabase.
 
 **Archivos por capa:**
 
@@ -141,7 +138,7 @@ Migración: en SPEC 13 ya está la DDL (esta fase no la reescribe).
 2. **Consultas de invitación.** `lib/activate.ts`: `lookupInvitationByCodePrefix` y `getActivationInvitation` con `timingSafeEqual` sobre el hash. Verify: probe con el seed `DEVCODE1` de SPEC 13 devuelve la invitación.
 3. **Client Admin.** `data/supabase/admin.ts` + `SUPABASE_SECRET_KEY` en `config.ts`/`.env.example`. Verify: `createUser` + `rpc("activate_invitation")` crea el usuario y lo vincula.
 4. **Accion paso 2.** `createParentAccountAction`: valida perfil/contraseña/código, `admin.createUser`, `activate_invitation`, auto-login, `redirect("/")`. Verify: cuenta creada, rol `parent` activo, vínculo en `parent_children`, sesión iniciada.
-5. **UI de `/activate-account`.** `useFormState` + dos pantallas, prefilled por searchParams, chips de código con undo. Verify: `npm run build`; con el link del correo (código+email) salta al paso 2.
+5. **UI de** `/activate-account`**.** `useFormState` + dos pantallas, prefilled por searchParams, chips de código con undo. Verify: `npm run build`; con el link del correo (código+email) salta al paso 2.
 6. **Conexiones de login.** Link "no recibí el correo" → paso 1 para el email predicho. Verify: navegación.
 7. **Retiro de cierre.** `lib/register.ts` / `register-store.ts` (si son vestigios) se marcan/retiran; grep limpio. Verify: `grep` sin referencias.
 8. **Verificación final.** `npm run lint && npm run build`, Playwright (flux completo con `DEVCODE1` y con código real del correo, duplicado, código inválido, vencido, ya-usado) y probes RLS del lado seguidor.
@@ -149,16 +146,27 @@ Migración: en SPEC 13 ya está la DDL (esta fase no la reescribe).
 ## Criterios de aceptación
 
 - [ ] `npm run lint` y `npm run build` pasan sin errores ni warnings.
+
 - [ ] Con `DEVCODE1` del seed de SPEC 13: crear cuenta, entrar en "Mi cuenta" y ver el niño vinculado.
+
 - [ ] El correo de verificación (paso 1) llega con código y link; el link pre-filled salta al paso 2.
+
 - [ ] `admin.createUser` escribe `role="parent"`, `status="active"` y `daycare_id` en `app_metadata`, y la fila existe en `public.users`.
+
 - [ ] Después de activar, la sesión queda iniciada y `/` muestra la app sin pantalla de login.
+
 - [ ] Reusar el mismo código devuelve un error claro ("invitación ya utilizada o vencida") y no crea un segundo vínculo.
+
 - [ ] Un email con cuenta ya existente muestra "este email ya está registrado — iniciá sesión" con CTA a `/login`.
+
 - [ ] Un código inválido o vencido muestra error con `role="alert"` y vuelve al paso de ingreso de código.
+
 - [ ] La contraseña cumple las reglas compartidas; dos contraseñas distintas muestran error de confirmación.
+
 - [ ] Con RLS: `anon` devuelve 0 filas de `parent_children`; el padre activado ve solo sus filas; un staff de otra guardería no ve las suyas.
+
 - [ ] No queda ninguna referencia a `opdaycare.kids.v1` ni a `localStorage` de padres en `app/`/`components/`/`lib/` (`grep` limpio).
+
 - [ ] Ningún archivo en `app/` ni `components/` importa desde `data/` (`grep` limpio).
 
 ## Decisiones

@@ -1,4 +1,4 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHash, randomInt, timingSafeEqual as timingSafeCompare } from "node:crypto";
 
 const CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const CODE_LENGTH = 8;
@@ -16,4 +16,10 @@ export function generateInviteCode(): string {
 
 export function hashInviteCode(code: string): string {
   return createHash("sha256").update(code, "utf8").digest("hex");
+}
+
+// Comparación en tiempo constante para verificar el código contra su hash
+// guardado: nunca `code === submitted`, que es medible por timing (SPEC 14).
+export function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && timingSafeCompare(a, b);
 }
