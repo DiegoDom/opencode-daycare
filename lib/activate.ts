@@ -1,5 +1,6 @@
 import { createClient } from "@/data/supabase/admin";
 import { hashInviteCode, timingSafeEqual } from "@/lib/invite-code";
+import { validateParentEmail } from "@/lib/kid-validation";
 
 export type InvitationRelationship = "mama" | "papa" | "tutor";
 
@@ -10,11 +11,48 @@ export interface PrefilledValues {
 
 export type ActivationView = "enter-email" | "create-account";
 
+export interface ParentProfile {
+  name: string;
+  email: string;
+  password: string;
+}
+
+// Regla compartida de contraseña (la primera en el producto; futuros formularios
+// importan esta y no redefinen): mínimo 8 caracteres y confirmación idéntica.
+export function isPasswordValidAndConfirmed(password: string, confirmation: string): boolean {
+  return password.length >= 8 && password === confirmation;
+}
+
+// Verifica la forma del perfil que arma la Server Action antes de tocar
+// Supabase: nombre, email y contraseña presentes y válidos. Lanza con el
+// mensaje que muestra el formulario.
+export function assertParentProfile(profile: unknown): asserts profile is ParentProfile {
+  if (typeof profile !== "object" || profile === null) {
+    throw new Error("Faltan los datos de la cuenta.");
+  }
+
+  const p = profile as Partial<ParentProfile>;
+
+  if (typeof p.name !== "string" || p.name.trim().length <= 1) {
+    throw new Error("Ingresá tu nombre.");
+  }
+  if (typeof p.email !== "string") {
+    throw new Error("Ingresá tu email.");
+  }
+  const emailError = validateParentEmail(p.email);
+  if (emailError) throw new Error(emailError);
+  if (typeof p.password !== "string" || p.password.length === 0) {
+    throw new Error("Ingresá la contraseña.");
+  }
+}
+
 // Una fila de `invitations` ya resuelta para la activación (niño + guardería
-// para la plantilla del correo). `fullName` no está en el contrato mínimo de la
-// spec: es el nombre del padre invitado, con el que la plantilla saluda.
+// para la plantilla del correo). `fullName` y `daycareId` no están en el
+// contrato mínimo de la spec: son el nombre del padre invitado, con el que la
+// plantilla saluda, y el tenancy para `app_metadata`.
 export interface InvitationScan {
   id: string;
+  daycareId: string;
   fullName: string;
   childName: string;
   daycareName: string;
@@ -24,6 +62,7 @@ export interface InvitationScan {
 
 interface ActivationInvitationRow {
   id: string;
+  daycare_id: string;
   full_name: string;
   code_hash: string;
   relationship: InvitationRelationship;
@@ -43,7 +82,7 @@ export async function getActivationInvitation(email: string): Promise<Invitation
   const { data, error } = await admin
     .from("invitations")
     .select(
-      "id, full_name, code_hash, relationship, children(full_name), daycares(name)",
+      "id, daycare_id, full_name, code_hash, relationship, children(full_name), daycares(name)",
     )
     .eq("email", normalized)
     .eq("status", "pending")
@@ -65,6 +104,7 @@ export async function getActivationInvitation(email: string): Promise<Invitation
 
   return {
     id: row.id,
+    daycareId: row.daycare_id,
     fullName: row.full_name,
     childName: child.full_name,
     daycareName: daycare.name,
@@ -89,7 +129,7 @@ export async function lookupInvitationByCodePrefix(
 
   const { data, error } = await admin
     .from("invitations")
-    .select("id, full_name, code_hash, relationship, children(full_name), daycares(name)")
+    .select("id, daycare_id, full_name, code_hash, relationship, children(full_name), daycares(name)")
     .eq("email", normalized)
     .eq("status", "pending")
     .gt("expires_at", new Date().toISOString())
@@ -114,6 +154,7 @@ export async function lookupInvitationByCodePrefix(
 
     scanned.push({
       id: row.id,
+      daycareId: row.daycare_id,
       fullName: row.full_name,
       childName: child.full_name,
       daycareName: daycare.name,

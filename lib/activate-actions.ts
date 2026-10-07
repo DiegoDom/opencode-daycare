@@ -1,7 +1,16 @@
 "use server";
 
+import { redirect } from "next/navigation";
+
 import { createClient } from "@/data/supabase/admin";
-import { getActivationInvitation } from "@/lib/activate";
+import {
+  assertParentProfile,
+  getActivationInvitation,
+  isPasswordValidAndConfirmed,
+  lookupInvitationByCodePrefix,
+  type ParentProfile,
+} from "@/lib/activate";
+import { signIn } from "@/lib/auth";
 import { activationLink, renderInvitationEmail } from "@/lib/email/invitation";
 import { RESEND_FROM, resend } from "@/lib/email/resend";
 import { generateInviteCode, hashInviteCode } from "@/lib/invite-code";
@@ -83,4 +92,93 @@ export async function verifyActivationEmail(
   }
 
   return { ok: true, email };
+}
+
+export type CreateParentAccountState = { error?: string };
+
+const CODE_ERROR = "El código es inválido, vencido o ya fue utilizado.";
+const GENERIC_ERROR = "No pudimos procesar tu solicitud. Intentá de nuevo.";
+const PASSWORD_ERROR =
+  "La contraseña debe tener al menos 8 caracteres y coincidir con su confirmación.";
+
+export async function createParentAccountAction(
+  state: CreateParentAccountState,
+  formData: FormData,
+): Promise<CreateParentAccountState> {
+  const code = String(formData.get("code") ?? "").trim().toUpperCase();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const confirmation = String(formData.get("confirmation") ?? "");
+
+  let invitation: Awaited<ReturnType<typeof lookupInvitationByCodePrefix>>[number];
+  try {
+    const invitations = await lookupInvitationByCodePrefix(code, email);
+    const first = invitations[0];
+    if (!first) return { error: CODE_ERROR };
+    invitation = first;
+  } catch (error) {
+    console.error("[createParentAccountAction] lookup:", error);
+    return { error: GENERIC_ERROR };
+  }
+
+  let profile: ParentProfile;
+  try {
+    profile = { name: invitation.fullName, email, password };
+    assertParentProfile(profile);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : GENERIC_ERROR };
+  }
+
+  if (!isPasswordValidAndConfirmed(password, confirmation)) {
+    return { error: PASSWORD_ERROR };
+  }
+
+  const admin = createClient();
+
+  // El `app_metadata` lo escribe el servidor: `role`, `status` y `daycare_id`
+  // son datos de autorización, nunca decididos desde el navegador. El email y el
+  // nombre no se confirman solos: `email_confirm: true` crea la cuenta lista
+  // para entrar; la activación la autoriza `activate_invitation`, no el email.
+  const { data, error: signUpError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: profile.name },
+    app_metadata: { role: "parent", status: "pending", daycare_id: invitation.daycareId },
+  });
+
+  if (signUpError) {
+    const alreadyRegistered =
+      signUpError.code === "email_exists" || /already been registered/i.test(signUpError.message);
+    if (alreadyRegistered) {
+      return { error: "Este email ya está registrado — iniciá sesión." };
+    }
+    console.error("[createParentAccountAction] createUser:", signUpError.message, signUpError.code);
+    return { error: "No pudimos crear tu cuenta. Intentá de nuevo." };
+  }
+
+  // Promueve a `active`, vincula `parent_children` y acepta la invitación, todo
+  // en una transacción (SPEC 13). Si la invitación se usó entre el lookup y acá,
+  // la carrera la resuelve `activate_invitation` con status/check de vigencia.
+  const { error: activateError } = await admin.rpc("activate_invitation", {
+    p_user_id: data.user.id,
+    p_invitation_id: invitation.id,
+  });
+  if (activateError) {
+    console.error(
+      "[createParentAccountAction] activate_invitation:",
+      activateError.message,
+      activateError.code,
+    );
+    return { error: CODE_ERROR };
+  }
+
+  // Auto-login: la cuenta recién creada entra sola; el `signIn` (cliente de
+  // servidor) escribe la cookie de sesión y `redirect` la lleva a `/`.
+  const result = await signIn(email, password);
+  if (!result.ok) {
+    return { error: "Cuenta creada, pero no pudimos iniciar sesión. Entrá desde el login." };
+  }
+
+  redirect("/");
 }
