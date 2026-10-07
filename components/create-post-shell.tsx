@@ -96,9 +96,12 @@ export default function CreatePostShell({ baseKids, rooms }: CreatePostShellProp
   const [touchedDescription, setTouchedDescription] = useState(false);
   const [persistError, setPersistError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // Sin dropdown todavía (llega con el selector de sala); por ahora la sala
-  // por defecto es la primera del daycare.
-  const [selectedRoomId] = useState<string | null>(rooms[0]?.id ?? null);
+  // La sala de la publicación: "Toda la sala" ⇒ el anuncio va a esta sala;
+  // la grilla de destinatarios se filtra por la sala elegida.
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(
+    rooms[0]?.id ?? null,
+  );
+  const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
 
   // Las previews salen de los File en memoria (object URLs), no de dataURL:
   // los bytes nunca viajan al server hasta que la action los sube a Storage.
@@ -112,16 +115,26 @@ export default function CreatePostShell({ baseKids, rooms }: CreatePostShellProp
   const typeGroupRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
+  function handleRoomChange(event: ChangeEvent<HTMLSelectElement>) {
+    setSelectedRoomId(event.target.value);
+    // Los destinatarios elegidos eran de la sala anterior: se descartan para
+    // que el draft no envíe niños que ya no están visibles en la grilla.
+    setRecipients([]);
+  }
+
   useEffect(() => {
     paraGroupRef.current?.querySelector("button")?.focus();
   }, []);
 
   const kids = useMemo(() => {
-    const baseSoles = baseKids.filter((kid) => kid.room === "Soles");
+    const roomName = selectedRoom?.name;
+    const baseInRoom = roomName
+      ? baseKids.filter((kid) => kid.room === roomName)
+      : [];
     const seenIds = new Set<string>();
     const seenNames = new Set<string>();
     const merged: Kid[] = [];
-    for (const kid of baseSoles) {
+    for (const kid of baseInRoom) {
       const key = normalize(kid.name);
       if (seenIds.has(kid.id) || seenNames.has(key)) continue;
       seenIds.add(kid.id);
@@ -129,7 +142,7 @@ export default function CreatePostShell({ baseKids, rooms }: CreatePostShellProp
       merged.push(kid);
     }
     return merged.sort((a, b) => a.name.localeCompare(b.name));
-  }, [baseKids]);
+  }, [baseKids, selectedRoom?.name]);
   const firstNameCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const kid of kids) {
@@ -276,6 +289,25 @@ export default function CreatePostShell({ baseKids, rooms }: CreatePostShellProp
       </header>
 
       <div className="px-[26px] pb-[26px] pt-6">
+        {rooms.length > 0 ? (
+          <section className="mb-[22px]">
+            <label htmlFor="room-select" className={SECTION_LABEL}>
+              SALA
+            </label>
+            <select
+              id="room-select"
+              value={selectedRoomId ?? ""}
+              onChange={handleRoomChange}
+              className="w-full cursor-pointer rounded-[14px] border-[1.5px] border-line bg-card px-4 py-3 text-[15px] font-bold text-ink outline-none transition-colors focus:border-coral focus:ring-2 focus:ring-coral/30"
+            >
+              {rooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
+                </option>
+              ))}
+            </select>
+          </section>
+        ) : null}
         <section className="mb-[22px]">
           <h2 id="label-para" className={SECTION_LABEL}>
             PARA

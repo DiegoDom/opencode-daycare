@@ -5,7 +5,7 @@ import { getKids, getRooms } from "@/lib/kids";
 import { redirect } from "next/navigation";
 
 export default async function PublicarPage() {
-  const baseKids = (await getKids()).filter((kid) => kid.room === "Soles");
+  const baseKids = await getKids();
   const rooms = await getRooms();
   const user = await getCurrentUser();
   if (!user) redirect("/login");
