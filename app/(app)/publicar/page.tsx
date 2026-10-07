@@ -9,7 +9,7 @@ export default async function PublicarPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.status !== "active") redirect("/login?error=pending");
-  const display = getFeedDisplay(user);
+  const display = await getFeedDisplay(user);
 
   return (
     <div className="flex min-h-screen items-start justify-center bg-canvas p-6 md:p-10">

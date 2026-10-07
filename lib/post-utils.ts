@@ -22,6 +22,26 @@ export const WHOLE_ROOM_AUTHOR: PostRecipient = {
   avatarColor: "#4E72C8",
 };
 
+// Paleta fija del mock (los 5 colores que usaban los componentes con datos
+// mock) + el indigo del avatar de "Anuncio general". La BD no guarda colores:
+// el índice sale de un hash determinista del nombre, igual que el de `lib/kids`.
+const AVATAR_PALETTE = [
+  { avatarBg: "#A9D9E8", avatarColor: "#1F7A93" },
+  { avatarBg: "#CCD8F4", avatarColor: "#4E72C8" },
+  { avatarBg: "#F4B8CC", avatarColor: "#C44A7A" },
+  { avatarBg: "#B9DEC4", avatarColor: "#3E8B62" },
+  { avatarBg: "#F4DC8E", avatarColor: "#9A7B1E" },
+  { avatarBg: "#C9B6E8", avatarColor: "#7B5FC0" },
+];
+
+export function avatarColors(name: string): { avatarBg: string; avatarColor: string } {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  }
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+}
+
 export function validateDescription(value: string): string | null {
   return value.trim() === "" ? "Escribí una descripción" : null;
 }

@@ -12,7 +12,7 @@ export default async function Home() {
   if (!user) redirect("/login");
   if (user.status !== "active") redirect("/login?error=pending");
 
-  const feed = getFeedDisplay(user);
+  const feed = await getFeedDisplay(user);
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas lg:h-screen lg:flex-row lg:overflow-hidden">

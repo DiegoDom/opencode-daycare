@@ -16,7 +16,7 @@ export default async function KidsPage({ searchParams }: PageProps<"/kids">) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.status !== "active") redirect("/login?error=pending");
-  const display = getFeedDisplay(user);
+  const display = await getFeedDisplay(user);
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas lg:h-screen lg:flex-row lg:overflow-hidden">
