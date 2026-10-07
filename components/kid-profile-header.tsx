@@ -2,7 +2,13 @@ import Link from "next/link";
 import type { Kid } from "@/lib/kids";
 import { ArrowLeftIcon } from "./icons";
 
-export default function KidProfileHeader({ kid }: { kid: Kid }) {
+interface KidProfileHeaderProps {
+  kid: Kid;
+  onEdit?: () => void;
+  editRef?: React.Ref<HTMLButtonElement>;
+}
+
+export default function KidProfileHeader({ kid, onEdit, editRef }: KidProfileHeaderProps) {
   return (
     <>
       <Link
@@ -27,7 +33,9 @@ export default function KidProfileHeader({ kid }: { kid: Kid }) {
           </p>
         </div>
         <button
+          ref={editRef}
           type="button"
+          onClick={onEdit}
           className="flex-none rounded-xl border-[1.5px] border-line bg-card px-4 py-[9px] text-sm font-bold text-sand"
         >
           Editar

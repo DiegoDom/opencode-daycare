@@ -5,7 +5,7 @@ import { getKids } from "@/lib/kids";
 import { redirect } from "next/navigation";
 
 export default async function PublicarPage() {
-  const baseKids = getKids().filter((kid) => kid.room === "Soles");
+  const baseKids = (await getKids()).filter((kid) => kid.room === "Soles");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.status !== "active") redirect("/login?error=pending");

@@ -10,8 +10,8 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarIcon } from "./icons";
-import { addChildAction } from "@/lib/kids-actions";
-import type { Room } from "@/lib/kids";
+import { updateKidAction } from "@/lib/kids-actions";
+import type { Kid, Room } from "@/lib/kids";
 import {
   formatBirthDateInput,
   formatISOToInput,
@@ -20,18 +20,81 @@ import {
   validateName,
 } from "@/lib/kid-validation";
 
-interface AddKidModalProps {
+interface EditKidModalProps {
+  kid: Kid;
   rooms: Room[];
   onClose: () => void;
 }
 
-export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
+function parseSpanishDateToISO(input: string): string | null {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(input.trim());
+  if (m) {
+    const [, d, mo, y] = m;
+    const date = new Date(Number(y), Number(mo) - 1, Number(d));
+    if (
+      date.getFullYear() !== Number(y) ||
+      date.getMonth() !== Number(mo) - 1 ||
+      date.getDate() !== Number(d)
+    )
+      return null;
+    const yyyy = String(date.getFullYear());
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  const m2 = /^(\d{1,2})\s+([a-záéíóúñ]+)\s+(\d{4})$/i.exec(input.trim());
+  if (m2) {
+    const [, d, moStr, y] = m2;
+    const MONTHS: Record<string, string> = {
+      ene: "01",
+      feb: "02",
+      mar: "03",
+      abr: "04",
+      may: "05",
+      jun: "06",
+      jul: "07",
+      ago: "08",
+      sep: "09",
+      oct: "10",
+      nov: "11",
+      dic: "12",
+    };
+    const key = moStr.toLowerCase().slice(0, 3);
+    const mm = MONTHS[key];
+    if (mm) {
+      const date = new Date(Number(y), Number(mm) - 1, Number(d));
+      if (
+        date.getFullYear() !== Number(y) ||
+        date.getMonth() !== Number(mm) - 1 ||
+        date.getDate() !== Number(d)
+      )
+        return null;
+      return `${y}-${mm}-${String(d).padStart(2, "0")}`;
+    }
+  }
+  return null;
+}
+
+function isoToSpanish(iso: string): string {
+  if (!iso) return "";
+  const parts = iso.split("-");
+  if (parts.length !== 3) return "";
+  const [y, m, d] = parts;
+  return `${d}/${m}/${y}`;
+}
+
+export default function EditKidModal({ kid, rooms, onClose }: EditKidModalProps) {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [birthDate, setBirthDate] = useState("");
-  const [room, setRoom] = useState(() => rooms[0]?.name ?? "");
-  const [allergies, setAllergies] = useState("");
-  const [notes, setNotes] = useState("");
+  const [name, setName] = useState(kid.name);
+  const [birthDate, setBirthDate] = useState(() => {
+    const iso = parseSpanishDateToISO(kid.birthDate);
+    return iso ? isoToSpanish(iso) : kid.birthDate;
+  });
+  const [room, setRoom] = useState(kid.room || rooms[0]?.name || "");
+  const [allergies, setAllergies] = useState(() =>
+    kid.badge?.label ? kid.badge.label : "",
+  );
+  const [notes, setNotes] = useState(kid.note?.text ?? "");
   const [touchedName, setTouchedName] = useState(false);
   const [touchedDate, setTouchedDate] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -74,7 +137,8 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
     }
     setSaving(true);
     setError(null);
-    const result = await addChildAction({
+    const result = await updateKidAction({
+      id: kid.id,
       name: name.trim(),
       birthDate: birthDate.trim(),
       room,
@@ -86,6 +150,15 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
       setError(result.error);
       return;
     }
+    try {
+      const raw = window.localStorage.getItem("opdaycare.kids.v1");
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      const stored = Array.isArray(parsed) ? (parsed as Record<string, unknown>[]) : [];
+      const filtered = stored.filter((k) => (k as { id: string }).id !== kid.id);
+      window.localStorage.setItem("opdaycare.kids.v1", JSON.stringify(filtered));
+    } catch {
+      // ignore
+    }
     router.refresh();
     onClose();
   }
@@ -96,12 +169,10 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
     const prevCursor = input.selectionStart ?? prevValue.length;
     const formatted = formatBirthDateInput(input.value);
 
-    // Preserve cursor when auto-inserting "/"
     let nextCursor = prevCursor;
     if (formatted.length > prevValue.length && formatted[prevCursor] === "/") {
       nextCursor = prevCursor + 1;
     } else if (formatted.length < prevValue.length) {
-      // Deleting: if we removed a "/", step back
       if (prevValue[prevCursor - 1] === "/" && formatted.length < prevValue.length) {
         nextCursor = Math.max(0, prevCursor - 1);
       }
@@ -134,7 +205,6 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
     if (!iso) return;
     setBirthDate(formatISOToInput(iso));
     setTouchedDate(true);
-    // Clear picker value so same date can be picked again if needed
     event.target.value = "";
   }
 
@@ -147,7 +217,7 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 md:p-4"
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget && !saving) onClose();
       }}
     >
       <form
@@ -156,7 +226,7 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
         onKeyDown={handleFormKeyDown}
         role="dialog"
         aria-modal="true"
-        aria-label="Agregar niño"
+        aria-label="Editar niño"
         className="flex max-h-[min(85dvh,720px)] w-[min(520px,calc(100vw-24px))] flex-col overflow-hidden rounded-[24px] border border-line bg-[#FBF4EC] shadow-[0_20px_50px_-24px_rgba(63,54,46,0.35)]"
       >
         <header className="sticky top-0 z-10 flex flex-none items-center justify-between border-b border-line bg-[#FBF4EC] px-5 py-4 md:px-[26px] md:py-[20px]">
@@ -169,7 +239,7 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
             Cancelar
           </button>
           <span className="font-display text-[18px] font-semibold text-ink">
-            Agregar niño
+            Editar niño
           </span>
           <button
             type="submit"
@@ -192,13 +262,13 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
           )}
           <div className="mb-3.5">
             <label
-              htmlFor="kid-name"
+              htmlFor="kid-name-edit"
               className="mb-[6px] block text-[12px] font-extrabold tracking-[0.7px] text-muted"
             >
               NOMBRE COMPLETO
             </label>
             <input
-              id="kid-name"
+              id="kid-name-edit"
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -207,28 +277,24 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
               autoComplete="off"
               autoFocus
               aria-invalid={!!nameError}
-              aria-describedby={nameError ? "err-kid-name" : undefined}
+              aria-describedby={nameError ? "err-kid-name-edit" : undefined}
               className={`${inputBase} ${nameError ? inputError : inputDefault}`}
             />
             {nameError ? (
               <p
-                id="err-kid-name"
+                id="err-kid-name-edit"
                 role="alert"
                 className="mt-1.5 text-[12px] font-semibold leading-none text-terracotta"
               >
                 {nameError}
               </p>
-            ) : (
-              <p className="mt-1.5 hidden text-[12px] leading-none" aria-hidden="true">
-                &nbsp;
-              </p>
-            )}
+            ) : null}
           </div>
 
           <div className="mb-3.5 flex gap-3">
             <div className="min-w-0 flex-1">
               <label
-                htmlFor="kid-birthdate"
+                htmlFor="kid-birthdate-edit"
                 className="mb-[6px] block text-[12px] font-extrabold tracking-[0.7px] text-muted"
               >
                 FECHA DE NACIMIENTO
@@ -236,7 +302,7 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
               <div className="relative">
                 <input
                   ref={birthDateInputRef}
-                  id="kid-birthdate"
+                  id="kid-birthdate-edit"
                   type="text"
                   value={birthDate}
                   onChange={handleBirthDateChange}
@@ -245,7 +311,7 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
                   autoComplete="off"
                   inputMode="numeric"
                   aria-invalid={!!dateError}
-                  aria-describedby={dateError ? "err-kid-birthdate" : undefined}
+                  aria-describedby={dateError ? "err-kid-birthdate-edit" : undefined}
                   className={`${inputBase} pr-10 ${dateError ? inputError : inputDefault}`}
                 />
                 <button
@@ -268,7 +334,7 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
               </div>
               {dateError ? (
                 <p
-                  id="err-kid-birthdate"
+                  id="err-kid-birthdate-edit"
                   role="alert"
                   className="mt-1.5 text-[12px] font-semibold leading-none text-terracotta"
                 >
@@ -278,14 +344,14 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
             </div>
             <div className="min-w-0 flex-1">
               <label
-                htmlFor="kid-room"
+                htmlFor="kid-room-edit"
                 className="mb-[6px] block text-[12px] font-extrabold tracking-[0.7px] text-muted"
               >
                 SALA
               </label>
               <div className="relative">
                 <select
-                  id="kid-room"
+                  id="kid-room-edit"
                   value={room}
                   onChange={(event) => setRoom(event.target.value)}
                   className="w-full appearance-none rounded-[14px] border-[1.5px] border-[#EADFD0] bg-white px-4 py-[11px] pr-10 text-[15px] font-bold text-ink outline-none focus:border-coral"
@@ -315,13 +381,13 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
 
           <div className="mb-3.5">
             <label
-              htmlFor="kid-allergies"
+              htmlFor="kid-allergies-edit"
               className="mb-[6px] block text-[12px] font-extrabold tracking-[0.7px] text-muted"
             >
               ALERGIAS (ETIQUETAS)
             </label>
             <input
-              id="kid-allergies"
+              id="kid-allergies-edit"
               type="text"
               value={allergies}
               onChange={(event) => setAllergies(event.target.value)}
@@ -333,13 +399,13 @@ export default function AddKidModal({ rooms, onClose }: AddKidModalProps) {
 
           <div>
             <label
-              htmlFor="kid-notes"
+              htmlFor="kid-notes-edit"
               className="mb-[6px] block text-[12px] font-extrabold tracking-[0.7px] text-muted"
             >
               NOTAS MÉDICAS
             </label>
             <textarea
-              id="kid-notes"
+              id="kid-notes-edit"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Indicaciones, medicación, contactos…"

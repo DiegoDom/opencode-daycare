@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Kid, KidParent } from "@/lib/kids";
+import type { Kid, KidParent, Room } from "@/lib/kids";
 import KidProfileHeader from "./kid-profile-header";
 import KidDataCard from "./kid-data-card";
 import KidNoteCard from "./kid-note-card";
 import KidParentsCard from "./kid-parents-card";
 import KidSummaryCard from "./kid-summary-card";
 import LinkParentModal, { type LinkParentDraft } from "./link-parent-modal";
+import EditKidModal from "./edit-kid-modal";
 
 const STORAGE_KEY = "opdaycare.kids.v1";
 
@@ -28,10 +29,14 @@ function initialsOf(name: string): string {
     .toUpperCase();
 }
 
-export default function KidProfileShell({ baseKid }: { baseKid: Kid }) {
+export default function KidProfileShell({ baseKid, rooms }: { baseKid: Kid; rooms: Room[] }) {
   const [displayKid, setDisplayKid] = useState<Kid>(baseKid);
-  const [modalOpen, setModalOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const linkTriggerRef = useRef<HTMLButtonElement>(null);
+  const editTriggerRef = useRef<HTMLButtonElement>(null);
+
+
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -42,7 +47,13 @@ export default function KidProfileShell({ baseKid }: { baseKid: Kid }) {
         if (!Array.isArray(parsed)) return;
         const stored = parsed as Kid[];
         const override = stored.find((kid) => kid.id === baseKid.id);
-        if (override) setDisplayKid(override);
+        if (override) {
+          setDisplayKid((prev) => ({
+            ...prev,
+            parents: override.parents,
+            parentsCount: override.parentsCount,
+          }));
+        }
       } catch {
         // localStorage deshabilitado: la vista usa solo baseKid
       }
@@ -50,9 +61,14 @@ export default function KidProfileShell({ baseKid }: { baseKid: Kid }) {
     return () => clearTimeout(timer);
   }, [baseKid.id]);
 
-  function closeModal() {
-    setModalOpen(false);
-    triggerRef.current?.focus();
+  function closeLinkModal() {
+    setLinkModalOpen(false);
+    linkTriggerRef.current?.focus();
+  }
+
+  function closeEditModal() {
+    setEditModalOpen(false);
+    editTriggerRef.current?.focus();
   }
 
   function handleSave(draft: LinkParentDraft) {
@@ -83,12 +99,12 @@ export default function KidProfileShell({ baseKid }: { baseKid: Kid }) {
       // localStorage deshabilitado: vive solo en memoria durante la sesión
     }
     setDisplayKid(updated);
-    closeModal();
+    closeLinkModal();
   }
 
   return (
     <div className="mx-auto w-full max-w-[820px] px-10 py-[34px] pb-20">
-      <KidProfileHeader kid={displayKid} />
+      <KidProfileHeader kid={displayKid} onEdit={() => setEditModalOpen(true)} editRef={editTriggerRef} />
 
       <div className="mt-[26px] flex flex-col gap-[18px] md:flex-row md:items-start md:gap-[26px]">
         <div className="flex min-w-0 flex-col gap-[18px] md:flex-1">
@@ -100,17 +116,24 @@ export default function KidProfileShell({ baseKid }: { baseKid: Kid }) {
           <KidSummaryCard />
           <KidParentsCard
             kid={displayKid}
-            onAdd={() => setModalOpen(true)}
-            buttonRef={triggerRef}
+            onAdd={() => setLinkModalOpen(true)}
+            buttonRef={linkTriggerRef}
           />
         </div>
       </div>
 
-      {modalOpen && (
+      {linkModalOpen && (
         <LinkParentModal
           kidName={displayKid.name}
-          onClose={closeModal}
+          onClose={closeLinkModal}
           onSave={handleSave}
+        />
+      )}
+      {editModalOpen && (
+        <EditKidModal
+          kid={displayKid}
+          rooms={rooms}
+          onClose={closeEditModal}
         />
       )}
     </div>

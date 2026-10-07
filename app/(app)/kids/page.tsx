@@ -6,12 +6,13 @@ import KidsShell from "@/components/kids-shell";
 import Sidebar from "@/components/sidebar";
 import { getCurrentUser } from "@/lib/auth";
 import { getFeedDisplay } from "@/lib/feed";
-import { searchKids } from "@/lib/kids";
+import { getRooms, searchKids } from "@/lib/kids";
 
 export default async function KidsPage({ searchParams }: PageProps<"/kids">) {
   const params = await searchParams;
   const q = typeof params.q === "string" ? params.q : "";
-  const kids = searchKids(q);
+  const kids = await searchKids(q);
+  const rooms = await getRooms();
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.status !== "active") redirect("/login?error=pending");
@@ -22,7 +23,7 @@ export default async function KidsPage({ searchParams }: PageProps<"/kids">) {
       <Sidebar user={display.currentUser} />
       <main className="min-w-0 flex-1 lg:h-screen lg:overflow-y-auto">
         <div className="mx-auto w-full max-w-[880px] px-10 py-[34px] pb-20">
-          <KidsShell baseKids={kids} query={q}>
+          <KidsShell baseKids={kids} rooms={rooms}>
             <div className="flex items-center gap-4">
               <div className="flex-1">
                 <Suspense fallback={<div />}>
