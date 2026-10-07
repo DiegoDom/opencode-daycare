@@ -2,11 +2,7 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { CloseIcon } from "./icons";
-import {
-  generateInviteCode,
-  validateParentEmail,
-  validateParentName,
-} from "@/lib/kid-validation";
+import { validateParentEmail, validateParentName } from "@/lib/kid-validation";
 
 export interface LinkParentDraft {
   name: string;
@@ -16,6 +12,18 @@ export interface LinkParentDraft {
 
 const ROLES = ["Mamá", "Papá", "Tutor/a"] as const;
 type ParentRole = (typeof ROLES)[number];
+
+// Temporal: fallback local para el código visual mientras llega la Server Action
+// (Step 7 de SPEC 13). No se persiste ni se envía; se reemplaza por el código
+// que devuelve `inviteParentAction`.
+function localInviteCode(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 5; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
 
 interface LinkParentModalProps {
   kidName: string;
@@ -34,7 +42,7 @@ export default function LinkParentModal({ kidName, onClose, onSave }: LinkParent
   const [role, setRole] = useState<ParentRole>("Mamá");
   const [touchedName, setTouchedName] = useState(false);
   const [touchedEmail, setTouchedEmail] = useState(false);
-  const [inviteCode] = useState(generateInviteCode);
+  const [inviteCode] = useState(localInviteCode);
 
   const nameError = touchedName ? validateParentName(name) : undefined;
   const emailError = touchedEmail ? validateParentEmail(email) : undefined;
