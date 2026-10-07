@@ -1,4 +1,5 @@
-import { feedData, type FeedData, type Post, type PostType } from "@/data/mock/feed";
+import { feedData, type FeedData } from "@/data/mock/feed";
+import type { Post, PostType } from "@/lib/feed-types";
 import {
   firstName,
   initialsFrom,

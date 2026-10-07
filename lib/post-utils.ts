@@ -1,4 +1,4 @@
-import type { Post, PostType } from "@/data/mock/feed";
+import type { Post, PostType } from "@/lib/feed-types";
 
 export interface PostRecipient {
   name: string;
