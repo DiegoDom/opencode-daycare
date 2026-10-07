@@ -1,6 +1,8 @@
 # SPEC 14 — Activación y registro de la cuenta del padre
 
-> **Estado:** Approved **Depende de:** SPEC 00 — Arquitectura, SPEC 04 — Pantalla activar cuenta, SPEC 09 — Tabla `users`, SPEC 10 — Autenticación y protección de rutas, SPEC 13 — Invitación en BD y email con Resend **Fecha:** 2026-10-06 **Objetivo:** Hacer funcional `/activate-account`: el padre confirma el código de la invitación, crea su cuenta (Supabase Auth + fila en `public.users`), se vincula al niño (`parent_children`) y queda logueado. El vínculo inicia en SPEC 13; esta spec lo resuelve.
+> **Estado:** Implementado **Depende de:** SPEC 00 — Arquitectura, SPEC 04 — Pantalla activar cuenta, SPEC 09 — Tabla `users`, SPEC 10 — Autenticación y protección de rutas, SPEC 13 — Invitación en BD y email con Resend, SPEC 16 — `handle_new_user` con creación diferida **Fecha:** 2026-10-06 **Objetivo:** Hacer funcional `/activate-account`: el padre confirma el código de la invitación, crea su cuenta (Supabase Auth + fila en `public.users`), se vincula al niño (`parent_children`) y queda logueado. El vínculo inicia en SPEC 13; esta spec lo resuelve.
+
+> **Actualización de implementación (2026-10-07):** la E2E del paso 8 destapó que GoTrue crea `auth.users` con solo `user_metadata` y escribe `app_metadata` en un UPDATE posterior; el trigger `AFTER INSERT` de SPEC 09 abortaba `admin.createUser` con `P0001: falta daycare_id`. Se resolvió con [SPEC 16](../specs/database/16-handle-new-user-app-metadata-diferido.md): creación de perfil idempotente y diferida vía un nuevo trigger `AFTER UPDATE`. Con eso la activación, el vínculo y el auto-login pasan por UI. La entrega del correo del paso 1 queda limitada por el entorno (cuenta de Resend sin dominio verificado: solo puede enviar al propio email del dueño); el flujo de reenvío actualiza correctamente `code_hash`/`expires_at` en la BD y reporta el error amigable cuando Resend rechaza.
 
 ## Alcance
 
@@ -180,7 +182,7 @@ Migración: en SPEC 13 ya está la DDL (esta fase no la reescribe).
 - **Sí:** la atomicidad la garantiza `activate_invitation` (SPEC 13): promover + vincular + aceptar en una transacción.
 - **Sí:** el código se verifica por hash con `timingSafeEqual` para evitar ataques de timing; lookup por prefijo de 6 chars del hash para permitir el grep por índice.
 - **Sí:** autorizar a los usuarios a editar `app_metadata` es solo el control de acceso de RLS; el rol del usuario nunca se decide desde el cliente.
-- **Sí:** no modificar `handle_new_user` técnicamente — este spec no altera la lógica de registro. (La cuenta la crea el Admin API con `email_confirm: true`.)
+- **Sí:** no modificar `handle_new_user` técnicamente — este spec no altera la lógica de registro. (La cuenta la crea el Admin API con `email_confirm: true`.) **Nota de implementación:** la premisa resultó falsa — el Admin API no entrega `app_metadata` en el INSERT (lo escribe en un UPDATE posterior), así que la creación diferida de [SPEC 16](../specs/database/16-handle-new-user-app-metadata-diferido.md) terminó siendo necesaria. La tenancy sigue leyéndose solo de `raw_app_meta_data`.
 - **Sí:** se mantienen los `interface` del mockup en `lib/` (extraídos con `lib/activation-strings.ts`) para no duplicar strings en el formulario y el correo.
 - **No:** políticas de escritura en `parent_children` (SPEC 13 ya lo fijó): solo `service_role` escribe.
 - **No:** vincular a un email con cuenta existente — se muestra error con CTA a login.

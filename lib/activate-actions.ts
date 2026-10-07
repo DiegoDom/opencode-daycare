@@ -17,17 +17,23 @@ import { generateInviteCode, hashInviteCode } from "@/lib/invite-code";
 import { validateParentEmail } from "@/lib/kid-validation";
 
 // El nombre sale de la spec (`VerifyEmialActionState`); se conserva tal cual
-// para que el contrato de la spec y el código coincidan.
+// para que el contrato de la spec y el código coincidan. `preview` es aditivo:
+// el paso 2 muestra la card del invitado sin volver a golpear la BD tras el sí.
 export type VerifyEmialActionState = {
   ok: boolean;
   error?: string;
   email?: string;
+  preview?: { childName: string; daycareName: string };
 };
 
 // La BD solo guarda el hash, así que "reenviar" significa emitir un código
 // nuevo: se regenera `code_hash` y se extiende la vigencia 7 días (mismo
 // precedente que reinvitar en SPEC 13) y recién después se envía el correo.
-async function resendVerificationEmail({ email }: { email: string }): Promise<{ error?: string }> {
+async function resendVerificationEmail({
+  email,
+}: {
+  email: string;
+}): Promise<{ error?: string; preview?: { childName: string; daycareName: string } }> {
   const invitation = await getActivationInvitation(email);
   if (!invitation) {
     return { error: "No encontramos una invitación pendiente para este email." };
@@ -72,7 +78,7 @@ async function resendVerificationEmail({ email }: { email: string }): Promise<{ 
     return { error: "No pudimos enviar el correo. Intentá de nuevo." };
   }
 
-  return {};
+  return { preview: { childName: invitation.childName, daycareName: invitation.daycareName } };
 }
 
 export async function verifyActivationEmail(
@@ -86,12 +92,11 @@ export async function verifyActivationEmail(
   try {
     const result = await resendVerificationEmail({ email });
     if (result.error) return { ok: false, error: result.error };
+    return { ok: true, email, preview: result.preview };
   } catch (error) {
     console.error("[verifyActivationEmail]", error);
     return { ok: false, error: "No pudimos verificar tu email. Intentá de nuevo." };
   }
-
-  return { ok: true, email };
 }
 
 export type CreateParentAccountState = { error?: string };
@@ -177,7 +182,9 @@ export async function createParentAccountAction(
   // servidor) escribe la cookie de sesión y `redirect` la lleva a `/`.
   const result = await signIn(email, password);
   if (!result.ok) {
-    return { error: "Cuenta creada, pero no pudimos iniciar sesión. Entrá desde el login." };
+    // Caso raro (cuenta creada pero login fallido): el éxito se muestra igual y
+    // el CTA de la pantalla "Ir a mi cuenta" redirige a `/login` vía el gate.
+    redirect("/activate-account/success");
   }
 
   redirect("/");
