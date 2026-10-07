@@ -46,6 +46,17 @@ export function validateDescription(value: string): string | null {
   return value.trim() === "" ? "Escribí una descripción" : null;
 }
 
+// "Toda la sala" ⇒ roomId con valor y childIds vacío;
+// destinatarios específicos ⇒ roomId null y ≥1 child. La exclusividad la
+// valida tanto el shell como `createPostAction`.
+export interface CreatePostDraft {
+  type: PostType;
+  description: string;
+  roomId: string | null;
+  childIds: string[];
+  photos: File[];
+}
+
 export function buildAudience(names: string[]): string {
   const firstNames = names.map((name) => name.trim().split(/\s+/)[0] ?? name);
   if (firstNames.length === 0) return "Para: sin destinatarios";

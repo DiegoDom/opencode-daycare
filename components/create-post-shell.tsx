@@ -16,19 +16,19 @@ import {
   useState,
 } from "react";
 import { CloseIcon, PlusIcon } from "./icons";
-import type { Post } from "@/lib/feed";
 import type { PostType } from "@/lib/feed";
-import { buildPost, validateDescription } from "@/lib/post-utils";
+import { createPostAction } from "@/lib/post-actions";
+import { validateDescription } from "@/lib/post-utils";
 import { normalize } from "@/lib/kid-utils";
-import type { Kid } from "@/lib/kids";
+import type { Kid, Room } from "@/lib/kids";
 
 interface CreatePostShellProps {
   baseKids: Kid[];
+  rooms: Room[];
   currentUser: { name: string; initials: string; role: string };
 }
 
 
-const POSTS_KEY = "opdaycare.posts.v1";
 const MAX_PHOTOS = 4;
 
 const TYPE_OPTIONS: { type: PostType; label: string; inactive: string; selected: string }[] = [
@@ -84,17 +84,28 @@ const KID_PILL_SELECTED = "border-ink bg-ink text-white";
 const WHOLE_UNSELECTED = "border-line bg-card text-sand";
 const WHOLE_SELECTED = "border-ink bg-ink text-white";
 
-export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
+export default function CreatePostShell({ baseKids, rooms }: CreatePostShellProps) {
   const router = useRouter();
   const [recipients, setRecipients] = useState<string[]>([]);
   const [wholeRoom, setWholeRoom] = useState(false);
   const [type, setType] = useState<PostType | null>(null);
   const [description, setDescription] = useState("");
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [touchedRecipients, setTouchedRecipients] = useState(false);
   const [touchedType, setTouchedType] = useState(false);
   const [touchedDescription, setTouchedDescription] = useState(false);
-  const [persistError, setPersistError] = useState(false);
+  const [persistError, setPersistError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  // Sin dropdown todavía (llega con el selector de sala); por ahora la sala
+  // por defecto es la primera del daycare.
+  const [selectedRoomId] = useState<string | null>(rooms[0]?.id ?? null);
+
+  // Las previews salen de los File en memoria (object URLs), no de dataURL:
+  // los bytes nunca viajan al server hasta que la action los sube a Storage.
+  const photoPreviews = useMemo(() => photos.map((file) => URL.createObjectURL(file)), [photos]);
+  useEffect(() => {
+    return () => photoPreviews.forEach((url) => URL.revokeObjectURL(url));
+  }, [photoPreviews]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const paraGroupRef = useRef<HTMLDivElement>(null);
@@ -127,14 +138,6 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
     }
     return counts;
   }, [kids]);
-  const selectedKids = useMemo(
-    () =>
-      recipients
-        .map((id) => kids.find((kid) => kid.id === id))
-        .filter((kid): kid is Kid => Boolean(kid)),
-    [recipients, kids],
-  );
-
   const recipientError =
     touchedRecipients && recipients.length === 0 && !wholeRoom
       ? "Elegí al menos un destinatario"
@@ -199,25 +202,12 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
   }
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []).slice(0, MAX_PHOTOS);
+    const files = Array.from(event.target.files ?? [])
+      .filter((file) => ["image/png", "image/jpeg", "image/webp"].includes(file.type))
+      .slice(0, MAX_PHOTOS);
     event.target.value = "";
     if (files.length === 0) return;
-    const readers = files.map(
-      (file) =>
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result));
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(file);
-        }),
-    );
-    Promise.all(readers)
-      .then((dataUrls) => {
-        setPhotos((prev) => [...prev, ...dataUrls].slice(0, MAX_PHOTOS));
-      })
-      .catch(() => {
-        // archivo ilegible: se ignora
-      });
+    setPhotos((prev) => [...prev, ...files].slice(0, MAX_PHOTOS));
   }
 
   function removePhoto(index: number) {
@@ -238,38 +228,28 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
     if (!valid) markAllTouched();
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!valid) {
       markAllTouched();
       focusFirstError();
       return;
     }
-    const post = buildPost({
+    setSubmitting(true);
+    const state = await createPostAction({
       type: type as PostType,
-      recipients: selectedKids.map((kid) => ({
-        name: kid.name,
-        initials: kid.initials,
-        avatarBg: kid.avatarBg,
-        avatarColor: kid.avatarColor,
-      })),
-      wholeRoom,
       description,
-      photos: photos.length > 0 ? photos : undefined,
+      roomId: wholeRoom ? selectedRoomId : null,
+      childIds: wholeRoom ? [] : recipients,
+      photos,
     });
-    try {
-      let stored: Post[] = [];
-      const raw = window.localStorage.getItem(POSTS_KEY);
-      if (raw) {
-        const parsed: unknown = JSON.parse(raw);
-        if (Array.isArray(parsed)) stored = parsed as Post[];
-      }
-      window.localStorage.setItem(POSTS_KEY, JSON.stringify([post, ...stored]));
-      setPersistError(false);
-      router.push("/");
-    } catch {
-      setPersistError(true);
+    setSubmitting(false);
+    if (!state.ok) {
+      setPersistError(state.error ?? "No pudimos guardar la publicación.");
+      return;
     }
+    setPersistError(null);
+    router.push("/");
   }
 
   return (
@@ -288,7 +268,7 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
         </span>
         <button
           type="submit"
-          disabled={!valid}
+          disabled={!valid || submitting}
           className="text-[15px] font-extrabold text-terracotta disabled:cursor-not-allowed disabled:opacity-40"
         >
           Publicar
@@ -437,7 +417,7 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp"
             multiple
             tabIndex={-1}
             aria-hidden="true"
@@ -445,13 +425,13 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
             className="hidden"
           />
           <div className="flex flex-wrap gap-3">
-            {photos.map((dataUrl, index) => (
-<div
-                  key={`${dataUrl.slice(0, 32)}-${index}`}
-                  className="relative h-24 w-24 overflow-hidden rounded-[14px] border border-line bg-photo"
-                >
-                  <Image
-                    src={dataUrl}
+            {photos.map((file, index) => (
+              <div
+                key={`${file.name}-${index}`}
+                className="relative h-24 w-24 overflow-hidden rounded-[14px] border border-line bg-photo"
+              >
+                <Image
+                  src={photoPreviews[index]}
                     alt=""
                     fill
                     unoptimized
@@ -483,7 +463,7 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
               role="alert"
               className="mt-2 text-[12px] font-semibold leading-snug text-terracotta"
             >
-              No se pudo guardar la publicación. Probá con menos fotos.
+              {persistError}
             </p>
           ) : null}
         </section>
