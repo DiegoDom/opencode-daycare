@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { createClient } from "@/data/supabase/server";
+import { getKidParents } from "@/lib/invitations";
 import { matchesName, normalize } from "./kid-utils";
 
 export type ParentRole = "Mamá" | "Papá" | "Tutor/a";
@@ -200,7 +201,13 @@ export async function getKidById(id: string): Promise<Kid | undefined> {
 
   if (error) throw new Error(`getKidById: ${error.message}`);
   if (!data) return undefined;
-  return toKid(data as unknown as ChildRow);
+
+  const kid = toKid(data as unknown as ChildRow);
+  // La card PADRES VINCULADOS vive en la BD (SPEC 13): pendientes + aceptadas.
+  // `getKids` (listado) deja `parents: []` como siempre; solo el profile puebla.
+  kid.parents = await getKidParents(id);
+  kid.parentsCount = kid.parents.length;
+  return kid;
 }
 
 // El total de la guardería (decenas de filas, RLS-scoped) se trae una vez y se

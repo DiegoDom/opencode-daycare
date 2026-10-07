@@ -1,26 +1,18 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState, useTransition } from "react";
 import { CloseIcon } from "./icons";
-import {
-  generateInviteCode,
-  validateParentEmail,
-  validateParentName,
-} from "@/lib/kid-validation";
-
-export interface LinkParentDraft {
-  name: string;
-  email: string;
-  role: ParentRole;
-}
+import { inviteParentAction } from "@/lib/invitations-actions";
+import { validateParentEmail, validateParentName } from "@/lib/kid-validation";
 
 const ROLES = ["Mamá", "Papá", "Tutor/a"] as const;
 type ParentRole = (typeof ROLES)[number];
 
 interface LinkParentModalProps {
+  childId: string;
   kidName: string;
   onClose: () => void;
-  onSave: (draft: LinkParentDraft) => void;
+  onSaved: () => void;
 }
 
 const inputBase =
@@ -28,18 +20,26 @@ const inputBase =
 const inputDefault = "border-[#EADFD0]";
 const inputError = "border-[#E8B4A8] bg-[#FFF5F3] focus:border-[#E8B4A8]";
 
-export default function LinkParentModal({ kidName, onClose, onSave }: LinkParentModalProps) {
+export default function LinkParentModal({
+  childId,
+  kidName,
+  onClose,
+  onSaved,
+}: LinkParentModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<ParentRole>("Mamá");
   const [touchedName, setTouchedName] = useState(false);
   const [touchedEmail, setTouchedEmail] = useState(false);
-  const [inviteCode] = useState(generateInviteCode);
+  const [sentCode, setSentCode] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   const nameError = touchedName ? validateParentName(name) : undefined;
   const emailError = touchedEmail ? validateParentEmail(email) : undefined;
   const valid =
     validateParentName(name) === null && validateParentEmail(email) === null;
+  const busy = isPending || sentCode !== null;
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -51,12 +51,27 @@ export default function LinkParentModal({ kidName, onClose, onSave }: LinkParent
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     if (!valid) {
       setTouchedName(true);
       setTouchedEmail(true);
       return;
     }
-    onSave({ name: name.trim(), email: email.trim(), role });
+    setError(null);
+    startTransition(async () => {
+      const result = await inviteParentAction({
+        childId,
+        name: name.trim(),
+        email: email.trim(),
+        role,
+      });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setSentCode(result.code ?? null);
+      onSaved();
+    });
   }
 
   return (
@@ -121,6 +136,15 @@ export default function LinkParentModal({ kidName, onClose, onSave }: LinkParent
             </span>
           </div>
 
+          {error && (
+            <p
+              role="alert"
+              className="mb-4 rounded-[12px] bg-badge-coral-bg px-4 py-[11px] text-[13.5px] font-semibold text-badge-coral"
+            >
+              {error}
+            </p>
+          )}
+
           <div className="mb-[18px]">
             <label
               htmlFor="parent-name"
@@ -137,6 +161,7 @@ export default function LinkParentModal({ kidName, onClose, onSave }: LinkParent
               placeholder="Ej. Diego Fernández"
               autoComplete="off"
               autoFocus
+              disabled={busy}
               aria-invalid={!!nameError}
               aria-describedby={nameError ? "err-parent-name" : undefined}
               className={`${inputBase} ${nameError ? inputError : inputDefault}`}
@@ -171,6 +196,7 @@ export default function LinkParentModal({ kidName, onClose, onSave }: LinkParent
               onBlur={() => setTouchedEmail(true)}
               placeholder="correo@ejemplo.com"
               autoComplete="off"
+              disabled={busy}
               aria-invalid={!!emailError}
               aria-describedby={emailError ? "err-parent-email" : undefined}
               className={`${inputBase} ${emailError ? inputError : inputDefault}`}
@@ -198,6 +224,7 @@ export default function LinkParentModal({ kidName, onClose, onSave }: LinkParent
                   role="radio"
                   aria-checked={role === option}
                   onClick={() => setRole(option)}
+                  disabled={busy}
                   className={`flex-1 rounded-full border-[1.5px] px-2 py-[11px] text-[14px] font-extrabold ${
                     role === option
                       ? "border-[#9FB8EC] bg-[#CCD8F4] text-[#4E72C8]"
@@ -210,19 +237,23 @@ export default function LinkParentModal({ kidName, onClose, onSave }: LinkParent
             </div>
           </div>
 
-          <div className="mb-5 rounded-[16px] border-[1.5px] border-dashed border-[#E6D08A] bg-[#FBF1D6] px-4 py-[18px] text-center">
+          <div
+            className="mb-5 rounded-[16px] border-[1.5px] border-dashed border-[#E6D08A] bg-[#FBF1D6] px-4 py-[18px] text-center"
+            aria-live="polite"
+          >
             <div className="mb-2 text-[12px] font-extrabold tracking-[0.7px] text-[#A88526]">
               CÓDIGO DE INVITACIÓN
             </div>
             <div className="font-display text-[34px] font-semibold tracking-[7px] text-[#8A7234]">
-              {inviteCode}
+              {sentCode ?? (isPending ? "••••••••" : "———")}
             </div>
             <div className="mt-[6px] text-[13px] text-[#A88526]">Vence en 7 días</div>
           </div>
 
           <button
             type="submit"
-            disabled={!valid}
+            disabled={!valid || busy}
+            aria-busy={isPending}
             className="flex w-full items-center justify-center gap-[9px] rounded-[14px] px-4 py-[14px] text-[15.5px] font-extrabold text-white shadow-[0_10px_22px_-8px_rgba(238,129,100,0.7)] disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: "linear-gradient(180deg,#F4977E,#EE8164)" }}
           >
@@ -239,7 +270,7 @@ export default function LinkParentModal({ kidName, onClose, onSave }: LinkParent
               <path d="m22 2-7 20-4-9-9-4z" />
               <path d="M22 2 11 13" />
             </svg>
-            Enviar invitación
+            {isPending ? "Enviando…" : sentCode ? "Invitación enviada" : "Enviar invitación"}
           </button>
         </div>
       </form>

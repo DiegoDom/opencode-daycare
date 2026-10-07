@@ -4,17 +4,16 @@
   "mcp": {
     "playwright": {
       "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@playwright/mcp@latest"
-      ],
+      "command": ["npx", "-y", "@playwright/mcp@latest"],
+      "enabled": true
+    },
+    "supabase": {
+      "type": "remote",
+      "url": "https://mcp.supabase.com/mcp?project_ref=zvtgjvsqehhvutyrbsil&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching",
       "enabled": true
     }
   },
-  "plugin": [
-    "context-mode"
-  ],
+  "plugin": ["context-mode"],
   "references": {
     "db-schema": {
       "path": "../07-DB-Schema",
