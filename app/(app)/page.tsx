@@ -32,7 +32,7 @@ export default async function Home() {
           ) : null}
           <SectionDivider label="PUBLICADO HOY" />
 
-          <FeedShell basePosts={feed.posts} currentUser={feed.currentUser} />
+          <FeedShell basePosts={feed.posts} />
         </div>
       </main>
     </div>
