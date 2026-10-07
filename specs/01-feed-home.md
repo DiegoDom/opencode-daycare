@@ -1,6 +1,6 @@
 # SPEC 01 — Home Feed desde el mockup `feed.dc.html`
 
-> **Estado:** Implementado **Depende de:** SPEC 00 — Arquitectura **Fecha:** 2026-09-18 **Objetivo:** Replicar pixel a pixel la pantalla `references/pantallas/feed.dc.html` como el home (`/`) del proyecto Next.js con Tailwind, sin autenticación ni base de datos.
+> **Estado:** Obsoleto **Reemplazado por:** SPEC 17 — Crear publicación en Supabase (el mock del feed fue retirado). **Depende de:** SPEC 00 — Arquitectura **Fecha:** 2026-09-18 **Objetivo:** Replicar pixel a pixel la pantalla `references/pantallas/feed.dc.html` como el home (`/`) del proyecto Next.js con Tailwind, sin autenticación ni base de datos.
 
 ## Alcance
 

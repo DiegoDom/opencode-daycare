@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { Post } from "@/lib/feed";
-import { CommentIcon, HeartIcon, MegaphoneIcon, PhotoIcon } from "./icons";
+import { CommentIcon, HeartIcon, MegaphoneIcon } from "./icons";
 
 const BADGES: Record<
   Post["type"],
@@ -120,11 +120,6 @@ export default function PostCard({ post }: { post: Post }) {
               <Image src={photo.src} alt="" fill unoptimized className="object-cover" />
             </div>
           ))}
-        </div>
-      ) : post.photo ? (
-        <div className="mt-3.5 flex h-[200px] flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-line-dashed bg-photo text-[#B0A290]">
-          <PhotoIcon />
-          <span className="text-[13.5px]">{post.photo.label}</span>
         </div>
       ) : null}
 

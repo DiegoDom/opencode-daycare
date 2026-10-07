@@ -13,7 +13,7 @@ export default async function KidProfilePage({ params }: PageProps<"/kids/[id]">
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.status !== "active") redirect("/login?error=pending");
-  const display = getFeedDisplay(user);
+  const display = await getFeedDisplay(user);
   const rooms = await getRooms();
 
   return (

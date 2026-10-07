@@ -16,19 +16,19 @@ import {
   useState,
 } from "react";
 import { CloseIcon, PlusIcon } from "./icons";
-import type { Post } from "@/lib/feed";
 import type { PostType } from "@/lib/feed";
-import { buildPost, validateDescription } from "@/lib/post-utils";
+import { createPostAction } from "@/lib/post-actions";
+import { validateDescription } from "@/lib/post-utils";
 import { normalize } from "@/lib/kid-utils";
-import type { Kid } from "@/lib/kids";
+import type { Kid, Room } from "@/lib/kids";
 
 interface CreatePostShellProps {
   baseKids: Kid[];
+  rooms: Room[];
   currentUser: { name: string; initials: string; role: string };
 }
 
 
-const POSTS_KEY = "opdaycare.posts.v1";
 const MAX_PHOTOS = 4;
 
 const TYPE_OPTIONS: { type: PostType; label: string; inactive: string; selected: string }[] = [
@@ -84,33 +84,57 @@ const KID_PILL_SELECTED = "border-ink bg-ink text-white";
 const WHOLE_UNSELECTED = "border-line bg-card text-sand";
 const WHOLE_SELECTED = "border-ink bg-ink text-white";
 
-export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
+export default function CreatePostShell({ baseKids, rooms }: CreatePostShellProps) {
   const router = useRouter();
   const [recipients, setRecipients] = useState<string[]>([]);
   const [wholeRoom, setWholeRoom] = useState(false);
   const [type, setType] = useState<PostType | null>(null);
   const [description, setDescription] = useState("");
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [touchedRecipients, setTouchedRecipients] = useState(false);
   const [touchedType, setTouchedType] = useState(false);
   const [touchedDescription, setTouchedDescription] = useState(false);
-  const [persistError, setPersistError] = useState(false);
+  const [persistError, setPersistError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  // La sala de la publicación: "Toda la sala" ⇒ el anuncio va a esta sala;
+  // la grilla de destinatarios se filtra por la sala elegida.
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(
+    rooms[0]?.id ?? null,
+  );
+  const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
+
+  // Las previews salen de los File en memoria (object URLs), no de dataURL:
+  // los bytes nunca viajan al server hasta que la action los sube a Storage.
+  const photoPreviews = useMemo(() => photos.map((file) => URL.createObjectURL(file)), [photos]);
+  useEffect(() => {
+    return () => photoPreviews.forEach((url) => URL.revokeObjectURL(url));
+  }, [photoPreviews]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const paraGroupRef = useRef<HTMLDivElement>(null);
   const typeGroupRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
+  function handleRoomChange(event: ChangeEvent<HTMLSelectElement>) {
+    setSelectedRoomId(event.target.value);
+    // Los destinatarios elegidos eran de la sala anterior: se descartan para
+    // que el draft no envíe niños que ya no están visibles en la grilla.
+    setRecipients([]);
+  }
+
   useEffect(() => {
     paraGroupRef.current?.querySelector("button")?.focus();
   }, []);
 
   const kids = useMemo(() => {
-    const baseSoles = baseKids.filter((kid) => kid.room === "Soles");
+    const roomName = selectedRoom?.name;
+    const baseInRoom = roomName
+      ? baseKids.filter((kid) => kid.room === roomName)
+      : [];
     const seenIds = new Set<string>();
     const seenNames = new Set<string>();
     const merged: Kid[] = [];
-    for (const kid of baseSoles) {
+    for (const kid of baseInRoom) {
       const key = normalize(kid.name);
       if (seenIds.has(kid.id) || seenNames.has(key)) continue;
       seenIds.add(kid.id);
@@ -118,7 +142,7 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
       merged.push(kid);
     }
     return merged.sort((a, b) => a.name.localeCompare(b.name));
-  }, [baseKids]);
+  }, [baseKids, selectedRoom?.name]);
   const firstNameCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const kid of kids) {
@@ -127,14 +151,6 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
     }
     return counts;
   }, [kids]);
-  const selectedKids = useMemo(
-    () =>
-      recipients
-        .map((id) => kids.find((kid) => kid.id === id))
-        .filter((kid): kid is Kid => Boolean(kid)),
-    [recipients, kids],
-  );
-
   const recipientError =
     touchedRecipients && recipients.length === 0 && !wholeRoom
       ? "Elegí al menos un destinatario"
@@ -199,25 +215,12 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
   }
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []).slice(0, MAX_PHOTOS);
+    const files = Array.from(event.target.files ?? [])
+      .filter((file) => ["image/png", "image/jpeg", "image/webp"].includes(file.type))
+      .slice(0, MAX_PHOTOS);
     event.target.value = "";
     if (files.length === 0) return;
-    const readers = files.map(
-      (file) =>
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result));
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(file);
-        }),
-    );
-    Promise.all(readers)
-      .then((dataUrls) => {
-        setPhotos((prev) => [...prev, ...dataUrls].slice(0, MAX_PHOTOS));
-      })
-      .catch(() => {
-        // archivo ilegible: se ignora
-      });
+    setPhotos((prev) => [...prev, ...files].slice(0, MAX_PHOTOS));
   }
 
   function removePhoto(index: number) {
@@ -238,38 +241,28 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
     if (!valid) markAllTouched();
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!valid) {
       markAllTouched();
       focusFirstError();
       return;
     }
-    const post = buildPost({
+    setSubmitting(true);
+    const state = await createPostAction({
       type: type as PostType,
-      recipients: selectedKids.map((kid) => ({
-        name: kid.name,
-        initials: kid.initials,
-        avatarBg: kid.avatarBg,
-        avatarColor: kid.avatarColor,
-      })),
-      wholeRoom,
       description,
-      photos: photos.length > 0 ? photos : undefined,
+      roomId: wholeRoom ? selectedRoomId : null,
+      childIds: wholeRoom ? [] : recipients,
+      photos,
     });
-    try {
-      let stored: Post[] = [];
-      const raw = window.localStorage.getItem(POSTS_KEY);
-      if (raw) {
-        const parsed: unknown = JSON.parse(raw);
-        if (Array.isArray(parsed)) stored = parsed as Post[];
-      }
-      window.localStorage.setItem(POSTS_KEY, JSON.stringify([post, ...stored]));
-      setPersistError(false);
-      router.push("/");
-    } catch {
-      setPersistError(true);
+    setSubmitting(false);
+    if (!state.ok) {
+      setPersistError(state.error ?? "No pudimos guardar la publicación.");
+      return;
     }
+    setPersistError(null);
+    router.push("/");
   }
 
   return (
@@ -288,7 +281,7 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
         </span>
         <button
           type="submit"
-          disabled={!valid}
+          disabled={!valid || submitting}
           className="text-[15px] font-extrabold text-terracotta disabled:cursor-not-allowed disabled:opacity-40"
         >
           Publicar
@@ -296,6 +289,25 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
       </header>
 
       <div className="px-[26px] pb-[26px] pt-6">
+        {rooms.length > 0 ? (
+          <section className="mb-[22px]">
+            <label htmlFor="room-select" className={SECTION_LABEL}>
+              SALA
+            </label>
+            <select
+              id="room-select"
+              value={selectedRoomId ?? ""}
+              onChange={handleRoomChange}
+              className="w-full cursor-pointer rounded-[14px] border-[1.5px] border-line bg-card px-4 py-3 text-[15px] font-bold text-ink outline-none transition-colors focus:border-coral focus:ring-2 focus:ring-coral/30"
+            >
+              {rooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
+                </option>
+              ))}
+            </select>
+          </section>
+        ) : null}
         <section className="mb-[22px]">
           <h2 id="label-para" className={SECTION_LABEL}>
             PARA
@@ -437,7 +449,7 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp"
             multiple
             tabIndex={-1}
             aria-hidden="true"
@@ -445,13 +457,13 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
             className="hidden"
           />
           <div className="flex flex-wrap gap-3">
-            {photos.map((dataUrl, index) => (
-<div
-                  key={`${dataUrl.slice(0, 32)}-${index}`}
-                  className="relative h-24 w-24 overflow-hidden rounded-[14px] border border-line bg-photo"
-                >
-                  <Image
-                    src={dataUrl}
+            {photos.map((file, index) => (
+              <div
+                key={`${file.name}-${index}`}
+                className="relative h-24 w-24 overflow-hidden rounded-[14px] border border-line bg-photo"
+              >
+                <Image
+                  src={photoPreviews[index]}
                     alt=""
                     fill
                     unoptimized
@@ -483,7 +495,7 @@ export default function CreatePostShell({ baseKids }: CreatePostShellProps) {
               role="alert"
               className="mt-2 text-[12px] font-semibold leading-snug text-terracotta"
             >
-              No se pudo guardar la publicación. Probá con menos fotos.
+              {persistError}
             </p>
           ) : null}
         </section>

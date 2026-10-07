@@ -24,9 +24,7 @@ export function SidebarContent({
   return (
     <>
       {brand}
-      <div className="mt-6">
-        <NewPostButton onNavigate={onNavigate} />
-      </div>
+      <div className="mt-6">{user.isParent ? null : <NewPostButton onNavigate={onNavigate} />}</div>
       <Nav active={active} onNavigate={onNavigate} />
       <div className="mt-auto border-t border-line pt-3.5">
         <UserFooter user={user} onAction={onLogout} isPending={isPending} />
