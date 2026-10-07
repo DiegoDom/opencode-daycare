@@ -161,7 +161,7 @@ Sigue SPEC 00 — Clean Architecture pragmática (regla de dependencia hacia ade
 - Las Server Actions viven en `lib/` (`lib/invitations-actions.ts`, precedente `lib/kids-actions.ts`): sin JSX ni `"use client"`, validación con `lib/kid-validation.ts` y `revalidatePath("/kids/<id>")`.
 - El email es infraestructura aislada en `lib/email/`; la action es su único consumidor. El cliente no conoce Resend ni la API key.
 - `components/kid-profile-shell.tsx` deja de ser la fuente de padres: recibe `baseKid` ya poblado por `getKidById` y refresca con `router.refresh()`; sin localStorage.
-- La DDL va a `specs/database/` como fuente de verdad; esta spec de feature la referencia (precedente SPEC 12). Migración con `apply_migration`, seed con `execute_sql`.
+- La DDL va a `specs/database/15-invitaciones-parent-children.md` como fuente de verdad; esta spec de feature la referencia. Migración con `apply_migration`, seed con `execute_sql`.
 - `app/` y `components/` siguen sin importar de `data/`.
 
 **Archivos por capa:**
