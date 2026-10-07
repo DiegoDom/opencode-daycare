@@ -1,9 +1,17 @@
+import { APP_URL } from "@/lib/email/resend";
+
 export interface InvitationEmailInput {
   parentName: string;
   childName: string;
   daycareName: string;
   code: string;
   link: string;
+}
+
+// Enlace de activación con código y email prellenados: con ambos la UI salta
+// directo al paso 2 de `/activate-account`. Solo se arma en el servidor.
+export function activationLink(code: string, email: string): string {
+  return `${APP_URL}/activate-account?code=${encodeURIComponent(code)}&email=${encodeURIComponent(email)}`;
 }
 
 function escapeHtml(value: string): string {

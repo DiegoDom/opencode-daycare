@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { loginAction, type LoginState } from "@/lib/auth-actions";
 
@@ -9,6 +9,13 @@ const INITIAL_STATE: LoginState = {};
 
 export default function LoginForm({ next }: { next: string }) {
   const [state, formAction, isPending] = useActionState(loginAction, INITIAL_STATE);
+  // El email se controla solo para prefillar el paso 1 de activación con el
+  // email que escribió el que está por loguear ("no recibí el correo").
+  const [email, setEmail] = useState("");
+
+  const activationHref = `/activate-account${
+    email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ""
+  }`;
 
   return (
     <form action={formAction} noValidate>
@@ -26,6 +33,8 @@ export default function LoginForm({ next }: { next: string }) {
         name="email"
         type="email"
         required
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
         placeholder="nombre@guarderia.com"
         aria-label="Correo electrónico"
         aria-invalid={state.fieldErrors?.email ? true : undefined}
@@ -89,6 +98,16 @@ export default function LoginForm({ next }: { next: string }) {
       >
         Iniciar sesión
       </button>
+
+      <p className="mt-3 text-center text-[14px] text-muted">
+        ¿No recibiste el correo de activación?{" "}
+        <Link
+          href={activationHref}
+          className="cursor-pointer font-extrabold text-terracotta-deep"
+        >
+          Reenviar el código
+        </Link>
+      </p>
 
       <p className="mt-6 text-center text-[14.5px] text-muted">
         ¿Te invitó la guardería?{" "}
